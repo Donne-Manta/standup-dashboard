@@ -34,7 +34,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .card-title{font-size:13px;font-weight:600;color:#334155;margin-bottom:14px}
 .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .insights-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}
+.list-item{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155}
 .list-item:last-child{border-bottom:none}
 .badge-pill{background:#ede9fe;color:#6366f1;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
 .badge-pill.pill-green{background:#dcfce7;color:#15803d}
@@ -42,9 +42,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .badge-pill.pill-red{background:#fee2e2;color:#dc2626}
 .alert-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}
 .alert-row:last-child{border-bottom:none}
-.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.dot-amber{background:#f59e0b}
-.dot-red{background:#ef4444}
 .ind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .p-charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .member-sel-row{margin-bottom:16px}
@@ -254,13 +251,14 @@ function getAppreciated(data) {
   return Object.entries(cnt).sort((a,b) => b[1]-a[1]).slice(0,8);
 }
 
-function getMonthlyInsights(data) {
+// Upgraded to extract arrays of top 3 highest and lowest months
+function getTopThreeMonthlyInsights(data) {
   const months = {};
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   data.forEach(e => {
     if (!e.d) return;
-    const yearMonth = e.d.slice(0, 7); // "YYYY-MM"
+    const yearMonth = e.d.slice(0, 7);
     if (!months[yearMonth]) {
       months[yearMonth] = { moodScores: [], sleepScores: [] };
     }
@@ -272,7 +270,7 @@ function getMonthlyInsights(data) {
   for (const [ym, obj] of Object.entries(months)) {
     const year = ym.split("-")[0];
     const monthIdx = parseInt(ym.split("-")[1], 10) - 1;
-    const label = `${monthNames[monthIdx]} ${year}`;
+    const label = monthNames[monthIdx] + " " + year;
     summary.push({
       label: label,
       avgMood: avg(obj.moodScores),
@@ -280,21 +278,28 @@ function getMonthlyInsights(data) {
     });
   }
 
-  const result = { highestMood: "—", lowestMood: "—", highestSleep: "—", lowestSleep: "—" };
+  const result = { highestMood: [], lowestMood: [], highestSleep: [], lowestSleep: [] };
   if (!summary.length) return result;
 
+  // Sort and isolate for Mood Metrics
   const validMoods = summary.filter(m => m.avgMood !== null);
   if (validMoods.length) {
     validMoods.sort((a, b) => b.avgMood - a.avgMood);
-    result.highestMood = `${validMoods[0].label} (${fmt(validMoods[0].avgMood)}/3)`;
-    result.lowestMood = `${validMoods[validMoods.length - 1].label} (${fmt(validMoods[validMoods.length - 1].avgMood)}/3)`;
+    result.highestMood = validMoods.slice(0, 3);
+    
+    // Sort in reverse order for lowest tracking calculations
+    const lowMoods = [...validMoods].sort((a, b) => a.avgMood - b.avgMood);
+    result.lowestMood = lowMoods.slice(0, 3);
   }
 
+  // Sort and isolate for Sleep Metrics
   const validSleep = summary.filter(m => m.avgSleep !== null);
   if (validSleep.length) {
     validSleep.sort((a, b) => b.avgSleep - a.avgSleep);
-    result.highestSleep = `${validSleep[0].label} (${fmt(validSleep[0].avgSleep)}/10)`;
-    result.lowestSleep = `${validSleep[validSleep.length - 1].label} (${fmt(validSleep[validSleep.length - 1].avgSleep)}/10)`;
+    result.highestSleep = validSleep.slice(0, 3);
+    
+    const lowSleep = [...validSleep].sort((a, b) => a.avgSleep - b.avgSleep);
+    result.lowestSleep = lowSleep.slice(0, 3);
   }
 
   return result;
@@ -399,8 +404,8 @@ function renderCompany(data) {
   const absent = names.filter(n => !recent.has(n));
   const appr = getAppreciated(data);
   
-  // Calculate automated monthly tracking metrics
-  const monthly = getMonthlyInsights(data);
+  // Calculate top 3 automated arrays
+  const monthly = getTopThreeMonthlyInsights(data);
 
   document.getElementById("companyView").innerHTML = `
     <div class="stats-grid">
@@ -455,32 +460,44 @@ function renderCompany(data) {
     <div class="card-title" style="margin: 24px 0 12px 4px; font-size:14px; font-weight:700;">📊 Insights</div>
     <div class="insights-row">
       <div class="chart-card">
-        <div class="stat-label">Months with the highest mood</div>
-        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#16a34a;">
-          <span>🟢 ${monthly.highestMood.split(" ")[0] || ""} ${monthly.highestMood.split(" ")[1] || ""}</span>
-          <span class="badge-pill pill-green">${monthly.highestMood.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
-        </div>
+        <div class="stat-label" style="margin-bottom:12px;">Months with the highest mood</div>
+        <ul>
+          ${monthly.highestMood.length ? monthly.highestMood.map((m,i) => `
+            <li class="list-item">
+              <span style="font-weight:600; color:#16a34a;">${i+1}. 🟢 ${m.label}</span>
+              <span class="badge-pill pill-green">${fmt(m.avgMood)}/3</span>
+            </li>`).join("") : '<li style="color:#94a3b8; font-size:12px;">—</li>'}
+        </ul>
       </div>
       <div class="chart-card">
-        <div class="stat-label">Months with the lowest mood</div>
-        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#dc2626;">
-          <span>🔴 ${monthly.lowestMood.split(" ")[0] || ""} ${monthly.lowestMood.split(" ")[1] || ""}</span>
-          <span class="badge-pill pill-red">${monthly.lowestMood.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
-        </div>
+        <div class="stat-label" style="margin-bottom:12px;">Months with the lowest mood</div>
+        <ul>
+          ${monthly.lowestMood.length ? monthly.lowestMood.map((m,i) => `
+            <li class="list-item">
+              <span style="font-weight:600; color:#dc2626;">${i+1}. 🔴 ${m.label}</span>
+              <span class="badge-pill pill-red">${fmt(m.avgMood)}/3</span>
+            </li>`).join("") : '<li style="color:#94a3b8; font-size:12px;">—</li>'}
+        </ul>
       </div>
       <div class="chart-card">
-        <div class="stat-label">Months with the highest sleep</div>
-        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#6366f1;">
-          <span>🌙 ${monthly.highestSleep.split(" ")[0] || ""} ${monthly.highestSleep.split(" ")[1] || ""}</span>
-          <span class="badge-pill pill-amber" style="background:#e0e7ff; color:#4338ca;">${monthly.highestSleep.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
-        </div>
+        <div class="stat-label" style="margin-bottom:12px;">Months with the highest sleep</div>
+        <ul>
+          ${monthly.highestSleep.length ? monthly.highestSleep.map((m,i) => `
+            <li class="list-item">
+              <span style="font-weight:600; color:#6366f1;">${i+1}. 🌙 ${m.label}</span>
+              <span class="badge-pill pill-amber" style="background:#e0e7ff; color:#4338ca;">${fmt(m.avgSleep)}/10</span>
+            </li>`).join("") : '<li style="color:#94a3b8; font-size:12px;">—</li>'}
+        </ul>
       </div>
       <div class="chart-card">
-        <div class="stat-label">Months with the lowest sleep</div>
-        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#d97706;">
-          <span>⚠️ ${monthly.lowestSleep.split(" ")[0] || ""} ${monthly.lowestSleep.split(" ")[1] || ""}</span>
-          <span class="badge-pill pill-amber">${monthly.lowestSleep.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
-        </div>
+        <div class="stat-label" style="margin-bottom:12px;">Months with the lowest sleep</div>
+        <ul>
+          ${monthly.lowestSleep.length ? monthly.lowestSleep.map((m,i) => `
+            <li class="list-item">
+              <span style="font-weight:600; color:#d97706;">${i+1}. ⚠️ ${m.label}</span>
+              <span class="badge-pill pill-amber">${fmt(m.avgSleep)}/10</span>
+            </li>`).join("") : '<li style="color:#94a3b8; font-size:12px;">—</li>'}
+        </ul>
       </div>
     </div>`;
 
@@ -508,10 +525,9 @@ function renderCompany(data) {
     options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
   });
 
-  document.getElementById("statusBar").textContent = `✅ Connected · Status normal · Data parsed dynamically.`;
+  document.getElementById("statusBar").textContent = "✅ Connected · Analytics metrics compiled dynamically.";
 }
 
-// ─── Individual view ──────────────────────────────────────
 function renderIndividual(name) {
   if (!name) return;
   const pd = filtered.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
