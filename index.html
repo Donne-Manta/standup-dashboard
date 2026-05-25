@@ -175,7 +175,6 @@ function cleanName(raw) {
   return raw;
 }
 
-// Fixed spacing metrics here
 function parseFeel(raw) {
   const f = (raw || "").toLowerCase();
   if (f.includes("not good") || f.includes("red_circle") || f.includes("cranky")) return "Not good";
@@ -235,6 +234,7 @@ function avg(arr) {
   return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
 }
 
+// Global template conversions
 function fmt(n, dp=1) { return n != null ? n.toFixed(dp) : "—"; }
 function moodScore(f) { return f === "Great" ? 3 : f === "Fine" ? 2 : 1; }
 function moodEmoji(f) { return f === "Great" ? "🟢 Great" : f === "Fine" ? "🟡 Fine" : "🔴 Not good"; }
@@ -526,8 +526,8 @@ function renderCompany(data) {
     data: {
       labels: wks.map(w => w.slice(5)),
       datasets: [{ data: wks.map(w => { const v = avg(wkMap[w].sl); return v != null ? parseFloat(v.toFixed(1)) : null; }), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,0.08)", pointBackgroundColor:"#6366f1", tension:0.3, fill:true, spanGaps:true, pointRadius:4 }]
-   },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
+    },
+    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:#94a3b8,font:{size:10}},grid:{color:"#f1f5f9"}}} }
   });
 
   const el = document.getElementById("insightsBody");
@@ -542,19 +542,14 @@ function renderCompany(data) {
 // ─── Individual view ──────────────────────────────────────
 function renderIndividual(name) {
   if (!name) return;
-  
-  // FIXED: Now filters the individual's profile data dynamically based on the active top-bar range selector!
   const pd = filtered.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
-  
   if (!pd.length) {
     document.getElementById("indContent").innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:24px">No data logged for ' + name + ' during this specific time range. Try selecting a broader timeframe like "90 days" or "All time".</div>';
     return;
   }
-
   const slAvg = avg(pd.filter(e => e.s != null).map(e => e.s));
   const mAvg  = avg(pd.map(e => moodScore(e.f)));
   const dom   = mAvg >= 2.5 ? "Great" : mAvg >= 1.5 ? "Fine" : "Not good";
-
   const udates = [...new Set(pd.map(e => e.d))].sort().reverse();
   let streak = 0;
   for (let i = 0; i < udates.length; i++) {
@@ -562,16 +557,15 @@ function renderIndividual(name) {
     const diff = Math.round((new Date(udates[i-1]+"T00:00:00") - new Date(udates[i]+"T00:00:00")) / 86400000);
     if (diff <= 3) streak++; else break;
   }
-
   document.getElementById("indContent").innerHTML = `
     <div class="ind-grid">
       <div class="stat-card"><div class="stat-label">Total Submissions</div><div class="stat-value">${pd.length}</div><div class="stat-sub">${streak}-day streak</div></div>
-      <div class="stat-card"><div class="stat-label">Range Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
+      <div class="stat-card"><div class="stat-label">Overall Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
       <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div></div>
     </div>
     <div class="p-charts">
-      <div class="chart-card"><div class="card-title">Mood Trend (Selected Range)</div><canvas id="pMood" height="140"></canvas></div>
-      <div class="chart-card"><div class="card-title">Sleep Trend (Selected Range)</div><canvas id="pSleep" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Mood — last 30 entries</div><canvas id="pMood" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Sleep — last 30 entries</div><canvas id="pSleep" height="140"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Recent Entries</div>
@@ -588,15 +582,16 @@ function renderIndividual(name) {
       </table>
     </div>`;
 
+  const cd = pd.slice(-30);
   dc("pMood");
   new Chart(document.getElementById("pMood"), {
     type: "bar",
     data: {
-      labels: pd.map(e => e.d.slice(5)),
+      labels: cd.map(e => e.d.slice(5)),
       datasets: [{
         label: "Mood Score",
-        data: pd.map(e => moodScore(e.f)),
-        backgroundColor: pd.map(e => e.f === "Great" ? "#86efac" : e.f === "Fine" ? "#fde68a" : "#fca5a5")
+        data: cd.map(e => moodScore(e.f)),
+        backgroundColor: cd.map(e => e.f === "Great" ? "#86efac" : e.f === "Fine" ? "#fde68a" : "#fca5a5")
       }]
     },
     options: { 
@@ -609,29 +604,6 @@ function renderIndividual(name) {
       } 
     }
   });
-
-  dc("pSleep");
-  new Chart(document.getElementById("pSleep"), {
-    type: "line",
-    data: {
-      labels: pd.map(e => e.d.slice(5)),
-      datasets: [{
-        data: pd.map(e => e.s),
-        borderColor: "#6366f1",
-        backgroundColor: "rgba(99,102,241,0.05)",
-        tension: 0.2,
-        fill: true,
-        spanGaps: true
-      }]
-    },
-    options: { 
-      responsive: true, 
-      maintainAspectRatio: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { min: 4, max: 10 } } 
-    }
-  });
-}
 
   dc("pSleep");
   new Chart(document.getElementById("pSleep"), {
