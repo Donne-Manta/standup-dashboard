@@ -539,16 +539,22 @@ function renderCompany(data) {
   el.innerHTML = html;
 }
 
+// ─── Individual view ──────────────────────────────────────
 function renderIndividual(name) {
   if (!name) return;
-  const pd = allData.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
+  
+  // FIXED: Now filters the individual's profile data dynamically based on the active top-bar range selector!
+  const pd = filtered.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
+  
   if (!pd.length) {
-    document.getElementById("indContent").innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:24px">No data found for ' + name + '.</div>';
+    document.getElementById("indContent").innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:24px">No data logged for ' + name + ' during this specific time range. Try selecting a broader timeframe like "90 days" or "All time".</div>';
     return;
   }
+
   const slAvg = avg(pd.filter(e => e.s != null).map(e => e.s));
   const mAvg  = avg(pd.map(e => moodScore(e.f)));
   const dom   = mAvg >= 2.5 ? "Great" : mAvg >= 1.5 ? "Fine" : "Not good";
+
   const udates = [...new Set(pd.map(e => e.d))].sort().reverse();
   let streak = 0;
   for (let i = 0; i < udates.length; i++) {
@@ -556,15 +562,16 @@ function renderIndividual(name) {
     const diff = Math.round((new Date(udates[i-1]+"T00:00:00") - new Date(udates[i]+"T00:00:00")) / 86400000);
     if (diff <= 3) streak++; else break;
   }
+
   document.getElementById("indContent").innerHTML = `
     <div class="ind-grid">
       <div class="stat-card"><div class="stat-label">Total Submissions</div><div class="stat-value">${pd.length}</div><div class="stat-sub">${streak}-day streak</div></div>
-      <div class="stat-card"><div class="stat-label">Overall Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
+      <div class="stat-card"><div class="stat-label">Range Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
       <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div></div>
     </div>
     <div class="p-charts">
-      <div class="chart-card"><div class="card-title">Mood — last 30 entries</div><canvas id="pMood" height="140"></canvas></div>
-      <div class="chart-card"><div class="card-title">Sleep — last 30 entries</div><canvas id="pSleep" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Mood Trend (Selected Range)</div><canvas id="pMood" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Sleep Trend (Selected Range)</div><canvas id="pSleep" height="140"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Recent Entries</div>
@@ -581,16 +588,15 @@ function renderIndividual(name) {
       </table>
     </div>`;
 
-  const cd = pd.slice(-30);
   dc("pMood");
   new Chart(document.getElementById("pMood"), {
     type: "bar",
     data: {
-      labels: cd.map(e => e.d.slice(5)),
+      labels: pd.map(e => e.d.slice(5)),
       datasets: [{
         label: "Mood Score",
-        data: cd.map(e => moodScore(e.f)),
-        backgroundColor: cd.map(e => e.f === "Great" ? "#86efac" : e.f === "Fine" ? "#fde68a" : "#fca5a5")
+        data: pd.map(e => moodScore(e.f)),
+        backgroundColor: pd.map(e => e.f === "Great" ? "#86efac" : e.f === "Fine" ? "#fde68a" : "#fca5a5")
       }]
     },
     options: { 
@@ -603,6 +609,29 @@ function renderIndividual(name) {
       } 
     }
   });
+
+  dc("pSleep");
+  new Chart(document.getElementById("pSleep"), {
+    type: "line",
+    data: {
+      labels: pd.map(e => e.d.slice(5)),
+      datasets: [{
+        data: pd.map(e => e.s),
+        borderColor: "#6366f1",
+        backgroundColor: "rgba(99,102,241,0.05)",
+        tension: 0.2,
+        fill: true,
+        spanGaps: true
+      }]
+    },
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { min: 4, max: 10 } } 
+    }
+  });
+}
 
   dc("pSleep");
   new Chart(document.getElementById("pSleep"), {
