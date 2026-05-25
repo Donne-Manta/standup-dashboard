@@ -128,7 +128,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 <script>
 // ─── Cloud Sync Configuration ──────────────────────────────
 // REPLACE the link inside the quotes below with your "Publish to Web" CSV link from Google Sheets:
-const GOOGLE_SHEET_CSV_URL = "PASTE_YOUR_LINK_HERE";
+const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?gid=1668261615&single=true&output=csv";
 
 // ─── Constants ────────────────────────────────────────────
 const KNOWN_NAMES = ["Camille","Chloe Guo","Claudia Ibrahim","Daisy Huang","Dan Franklin","Dani Molina","Desiree Cagalitan-Olaso","Donné Norman","Erica Amaro","Erin Canoy-Yarisantos","Ethan Lott","Fem Bacerra","Gabbie Talan","Ibrahim Aleem","Ivy Pangilinan","James Swain","Judith","Julia Monteoliva","KJ Chang","Karleen Mae Guevara","Katalina Sanabria","Kristy Valencia","Laneza Rimando","Lee","Lia Fuentes","Marecris Soriano","Melanie van der Merwe","Merve Nur Sökmen","Nathan Tomlinson","Red","Sienna Paragas","Spencer Hung","Tomo","Vilécha Morton"];
@@ -143,7 +143,7 @@ let grokApiKey = "";
 
 // ─── Auto Fetch Initializer ────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  if (GOOGLE_SHEET_CSV_URL === "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?output=csv" || GOOGLE_SHEET_CSV_URL.trim() === "") {
+  if (GOOGLE_SHEET_CSV_URL === "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?gid=1668261615&single=true&output=csv" || GOOGLE_SHEET_CSV_URL.trim() === "") {
     document.getElementById("statusBar").textContent = "❌ Setup Incomplete: Please open the HTML source code and paste your live Google Sheets link on line 102.";
     return;
   }
