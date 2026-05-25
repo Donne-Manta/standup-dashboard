@@ -575,24 +575,31 @@ function renderCompany(data) {
     data: {
       labels: wks.map(w => w.slice(5)),
       datasets: [
-        { label:"Great", data: wks.map(w=>wkMap[w].great), backgroundColor:"#86efac" },
-        { label:"Fine",  data: wks.map(w=>wkMap[w].fine),  backgroundColor:"#fde68a" },
-        { label:"Not good", data: wks.map(w=>wkMap[w].bad), backgroundColor:"#fca5a5" }
+        { label: "Great", data: wks.map(w => wkMap[w].great), backgroundColor: "#86efac" },
+        { label: "Fine",  data: wks.map(w => wkMap[w].fine),  backgroundColor: "#fde68a" },
+        { label: "Not good", data: wks.map(w => wkMap[w].bad), backgroundColor: "#fca5a5" }
       ]
     },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: true, 
+      plugins: {
+        legend: { labels: { color: "#64748b", boxWidth: 12, font: { size: 11 } } }
+      }, 
+      scales: {
+        x: { 
+          stacked: true, // Re-locks the horizontal axis stacking
+          ticks: { color: "#94a3b8", font: { size: 10 } }, 
+          grid: { display: false } 
+        },
+        y: { 
+          stacked: true, // Re-locks the vertical axis stacking to scale past 10!
+          ticks: { color: "#94a3b8", font: { size: 10 } }, 
+          grid: { color: "#f1f5f9" } 
+        }
+      } 
+    }
   });
-
-  dc("sleepC");
-  new Chart(document.getElementById("sleepC"), {
-    type: "line",
-    data: {
-      labels: wks.map(w => w.slice(5)),
-      datasets: [{ data: wks.map(w => { const v = avg(wkMap[w].sl); return v != null ? parseFloat(v.toFixed(1)) : null; }), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,0.08)", pointBackgroundColor:"#6366f1", tension:0.3, fill:true, spanGaps:true, pointRadius:4 }]
-    },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
-  });
-}
 
 function renderIndividual(name) {
   if (!name) return;
