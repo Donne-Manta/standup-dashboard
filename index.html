@@ -361,7 +361,7 @@ async function runGrokInsights() {
     resultEl.innerHTML = '<div style="padding-top:4px">' + formatted + '</div>';
   } catch (err) {
     resultEl.innerHTML = '<span style="color:#dc2626">X ' + err.message + '</span>';
-  } finaly {
+  } (finaly) {
     genBtn.disabled = false;
     genBtn.textContent = "Generate";
   }
