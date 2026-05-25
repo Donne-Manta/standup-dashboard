@@ -127,7 +127,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 
 <script>
 // ─── Cloud Sync Configuration ──────────────────────────────
-// REPLACE the link inside the quotes below with your "Publish to Web" CSV link from Google Sheets:
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?gid=1668261615&single=true&output=csv";
 
 // ─── Constants ────────────────────────────────────────────
@@ -143,8 +142,8 @@ let grokApiKey = "";
 
 // ─── Auto Fetch Initializer ────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  if (GOOGLE_SHEET_CSV_URL === "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?gid=1668261615&single=true&output=csv" || GOOGLE_SHEET_CSV_URL.trim() === "") {
-    document.getElementById("statusBar").textContent = "❌ Setup Incomplete: Please open the HTML source code and paste your live Google Sheets link on line 102.";
+  if (GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE") || GOOGLE_SHEET_CSV_URL.trim() === "") {
+    document.getElementById("statusBar").textContent = "❌ Setup Incomplete: Please paste your live Google Sheets CSV link.";
     return;
   }
   fetchCloudData();
@@ -225,6 +224,14 @@ function parseDate(raw) {
   if (p.length === 3) {
     let [v1, v2, v3] = p;
     if (v3.length === 4) {
+      let day = parseInt(v1, 10);
+      let month = parseInt(v2, 10);
+      // Adaptive swap logic to catch both DD/MM and MM/DD exports reliably
+      if (day > 12 && month <= 12) {
+        return `${v3}-${v2.padStart(2, "0")}-${v1.padStart(2, "0")}`;
+      } else if (month > 12 && day <= 12) {
+        return `${v3}-${v1.padStart(2, "0")}-${v2.padStart(2, "0")}`;
+      }
       return `${v3}-${v2.padStart(2, "0")}-${v1.padStart(2, "0")}`;
     }
   }
@@ -415,6 +422,7 @@ function renderTab() {
   }
 }
 
+// ─── Navigation Controller ────────────────────────────────
 function switchTab(t) {
   currentTab = t;
   document.querySelectorAll(".tab-btn").forEach((b,i) =>
@@ -473,7 +481,7 @@ function renderCompany(data) {
       <div class="stat-card">
         <div class="stat-label">Dominant Mood</div>
         <div class="stat-value ${moodCls(dom)}" style="font-size:19px">${moodEmoji(dom)}</div>
-        <div class="stat-sub">🟢 ${great} &nbsp;🟡 ${fine} &nbsp;🔴 ${bad}</div>
+        <div class="stat-sub">🟢 ${great} &nbsp;&nbsp; 🟡 ${fine} &nbsp;&nbsp; 🔴 ${bad}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Avg Sleep Score</div>
