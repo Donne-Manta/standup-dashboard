@@ -72,4 +72,654 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .indigo{color:#6366f1!important}
 
 /* Upload drop zone */
-.upload-
+.upload-zone{background:white;border-radius:16px;border:2px dashed #c7d2fe;padding:56px 32px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+.upload-zone:hover,.upload-zone.drag-over{border-color:#6366f1;background:#f5f3ff}
+.upload-zone .icon{font-size:48px;margin-bottom:16px}
+.upload-zone h2{font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px}
+.upload-zone p{font-size:13px;color:#94a3b8;margin-bottom:20px;line-height:1.6}
+.upload-zone .how{background:#f8fafc;border-radius:10px;padding:14px 20px;margin:0 auto 20px;max-width:420px;text-align:left}
+.upload-zone .how p{font-size:12px;color:#64748b;margin-bottom:4px}
+.upload-zone .how p:last-child{margin-bottom:0}
+.upload-zone .how strong{color:#334155}
+.choose-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#6366f1;color:white;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.choose-btn:hover{background:#4f46e5}
+
+/* Grok AI panel */
+.ai-btn{padding:5px 12px;border-radius:6px;border:1px solid #a855f7;background:white;color:#a855f7;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;transition:all .15s}
+.ai-btn:hover{background:#a855f7;color:white}
+.grok-panel{background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none}
+.grok-panel.visible{display:block}
+.grok-panel-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.grok-panel input{flex:1;padding:7px 12px;border-radius:6px;border:1px solid #d8b4fe;background:white;font-size:12px;color:#1e293b;outline:none}
+.grok-panel input:focus{border-color:#a855f7}
+.grok-panel .gen-btn{padding:7px 14px;border-radius:6px;border:none;background:#a855f7;color:white;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.grok-panel .gen-btn:hover{background:#9333ea}
+.grok-panel .gen-btn:disabled{opacity:.5;cursor:not-allowed}
+.grok-hint{font-size:11px;color:#a78bfa}
+.ai-result{font-size:13px;line-height:1.75;color:#475569;border-top:1px solid #e9d5ff;padding-top:12px;margin-top:4px}
+.ai-spin{width:14px;height:14px;border:2px solid #e9d5ff;border-top-color:#a855f7;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+
+#fileInput{display:none}
+@media(max-width:768px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .charts-row,.bottom-row,.p-charts{grid-template-columns:1fr}
+  .ind-grid{grid-template-columns:1fr 1fr}
+  .topbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}
+  .range-btns{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)" />
+
+<div class="topbar">
+  <div class="logo">
+    <span style="font-size:22px">☀️</span>
+    <h1>Daily Standup</h1>
+    <span class="badge">Manta Sleep</span>
+  </div>
+  <div class="topbar-right">
+    <div class="range-btns">
+      <button class="range-btn" onclick="setRange('7d')">7 days</button>
+      <button class="range-btn active" onclick="setRange('30d')">30 days</button>
+      <button class="range-btn" onclick="setRange('90d')">90 days</button>
+      <button class="range-btn" onclick="setRange('all')">All time</button>
+    </div>
+    <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('fileInput').click()" title="Upload CSV or Excel file">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span id="uploadBtnLabel">Upload File</span>
+    </button>
+  </div>
+</div>
+
+<div class="page">
+  <div class="status-bar" id="statusBar"></div>
+
+  <div id="uploadView">
+    <div class="upload-zone" id="dropZone"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDrop(event)"
+      onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📊</div>
+      <h2>Upload your standup data</h2>
+      <p>Drop your file here or click to browse.<br>Supports CSV and Excel (.xlsx) files.</p>
+      <div class="how">
+        <p><strong>How to export from Google Sheets:</strong></p>
+        <p>File → Download → CSV (.csv) or Excel (.xlsx)</p>
+        <p style="margin-top:8px"><strong>How to export from Excel:</strong></p>
+        <p>Save As → CSV or keep as .xlsx</p>
+      </div>
+      <button class="choose-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Choose file
+      </button>
+    </div>
+  </div>
+
+  <div id="dashView" style="display:none">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('company')">Company</button>
+      <button class="tab-btn" onclick="switchTab('individual')">Individual</button>
+    </div>
+
+    <div id="companyView"></div>
+
+    <div id="individualView" style="display:none">
+      <div class="member-sel-row">
+        <select id="memberSel" onchange="renderIndividual(this.value)">
+          <option value="">— Select a team member —</option>
+        </select>
+      </div>
+      <div id="indContent"><div style="text-align:center;color:#94a3b8;padding:48px;font-size:14px">Select a team member to view their history.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Constants ────────────────────────────────────────────
+const KNOWN_NAMES = ["Camille","Chloe Guo","Claudia Ibrahim","Daisy Huang","Dan Franklin","Dani Molina","Desiree Cagalitan-Olaso","Donné Norman","Erica Amaro","Erin Canoy-Yarisantos","Ethan Lott","Fem Bacerra","Gabbie Talan","Ibrahim Aleem","Ivy Pangilinan","James Swain","Judith","Julia Monteoliva","KJ Chang","Karleen Mae Guevara","Katalina Sanabria","Kristy Valencia","Laneza Rimando","Lee","Lia Fuentes","Marecris Soriano","Melanie van der Merwe","Merve Nur Sökmen","Nathan Tomlinson","Red","Sienna Paragas","Spencer Hung","Tomo","Vilécha Morton"];
+const NAMES_BY_LEN = [...KNOWN_NAMES].sort((a,b) => b.length - a.length);
+
+// ─── State ────────────────────────────────────────────────
+let allData = [];
+let filtered = [];
+let currentRange = "30d";
+let currentTab = "company";
+let grokApiKey = "";
+
+// ─── Helpers ──────────────────────────────────────────────
+function cleanName(raw) {
+  raw = (raw || "").trim();
+  if (!raw) return raw;
+  if (KNOWN_NAMES.includes(raw)) return raw;
+  for (const n of NAMES_BY_LEN) { if (raw.endsWith(n)) return n; }
+  return raw;
+}
+
+function parseFeel(raw) {
+  const f = (raw || "").toLowerCase();
+  if (f.includes("not good") || f.includes("red_circle") || f.includes("cranky")) return "Not good";
+  if (f.includes("great") || f.includes("sunshine") || f.includes("kiwi")) return "Great";
+  return "Fine";
+}
+
+function parseSleep(raw) {
+  const m = (raw || "").match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  let v = parseFloat(m[1]);
+  if (v > 10) v /= 10;
+  if (v > 10) return null;
+  return Math.round(v * 10) / 10;
+}
+
+function parseDate(raw) {
+  if (!raw) return null;
+  
+  // Try to parse standard string date format first (DD/MM/YYYY)
+  const p = raw.toString().trim().split("/");
+  if (p.length === 3) {
+    const [d, m, y] = p;
+    if (y && y.length === 4) {
+      return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+    }
+  }
+  
+  // Alternative fallback check for ISO format or native JS date reading
+  const nativeDate = new Date(raw);
+  if (!isNaN(nativeDate.getTime())) {
+    return nativeDate.toISOString().slice(0, 10);
+  }
+  
+  return null;
+}
+
+function avg(arr) {
+  const v = arr.filter(x => x != null);
+  return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
+}
+
+function fmt(n, dp=1) { return n != null ? n.toFixed(dp) : "—"; }
+function moodScore(f) { return f === "Great" ? 3 : f === "Fine" ? 2 : 1; }
+function moodEmoji(f) { return f === "Great" ? "🟢 Great" : f === "Fine" ? "🟡 Fine" : "🔴 Not good"; }
+function moodCls(f) { return f === "Great" ? "great" : f === "Fine" ? "fine" : "bad"; }
+function pillCls(f) { return f === "Great" ? "pill-great" : f === "Fine" ? "pill-fine" : "pill-bad"; }
+function getMon(ds) {
+  const d = new Date(ds + "T00:00:00"), day = d.getDay() || 7;
+  return new Date(d - (day-1)*86400000).toISOString().slice(0,10);
+}
+function dc(id) { const c = Chart.getChart(id); if (c) c.destroy(); }
+
+function getAppreciated(data) {
+  const lk = {};
+  for (const n of KNOWN_NAMES) {
+    lk[n.toLowerCase()] = n;
+    const first = n.split(" ")[0].toLowerCase();
+    if (first.length >= 3) lk[first] = n;
+  }
+  Object.assign(lk, { "donne":"Donné Norman","donné":"Donné Norman","des":"Desiree Cagalitan-Olaso","vilecha":"Vilécha Morton","kj":"KJ Chang","kat":"Katalina Sanabria" });
+  const cnt = {};
+  for (const e of data) {
+    if (!e.g) continue;
+    for (const [k, full] of Object.entries(lk)) {
+      if (k.length < 2 || full === e.n) continue;
+      if (new RegExp("\\b" + k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b","i").test(e.g))
+        cnt[full] = (cnt[full] || 0) + 1;
+    }
+  }
+  return Object.entries(cnt).sort((a,b) => b[1]-a[1]).slice(0,8);
+}
+
+// ─── File handling ────────────────────────────────────────
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById("dropZone").classList.remove("drag-over");
+  const file = event.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+  event.target.value = ""; 
+}
+
+function processFile(file) {
+  const name = file.name.toLowerCase();
+  document.getElementById("statusBar").textContent = `Reading ${file.name}…`;
+
+  if (name.endsWith(".csv")) {
+    const reader = new FileReader();
+    reader.onload = e => parseCSV(e.target.result, file.name);
+    reader.readAsText(file);
+  } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    const reader = new FileReader();
+    reader.onload = e => parseExcel(e.target.result, file.name);
+    reader.readAsArrayBuffer(file);
+  } else {
+    document.getElementById("statusBar").textContent = "❌ Please upload a .csv or .xlsx file.";
+  }
+}
+
+function parseCSV(text, filename) {
+  const parsed = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: h => h.trim()
+  });
+  if (!parsed.data.length) {
+    document.getElementById("statusBar").textContent = "❌ No data found in this file.";
+    return;
+  }
+  loadRows(parsed.data, filename);
+}
+
+function parseExcel(buffer, filename) {
+  try {
+    const wb = XLSX.read(buffer, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    if (!rows.length) {
+      document.getElementById("statusBar").textContent = "❌ No data found in this file.";
+      return;
+    }
+    loadRows(rows, filename);
+  } catch (err) {
+    document.getElementById("statusBar").textContent = `❌ Could not read Excel file: ${err.message}`;
+  }
+}
+
+function loadRows(rows, filename) {
+  allData = rows
+    .map(row => {
+      const name = cleanName(row["Name"] || row["name"] || row["NAME"] || "");
+      const date = parseDate(row["Date"] || row["date"] || row["DATE"] || "");
+      const feeling = parseFeel(row["Feeling"] || row["feeling"] || row["Mood"] || "");
+      const sleep = parseSleep(row["Sleep Score"] || row["Sleep"] || row["sleep"] || row["SLEEP"] || "");
+      const gratitude = (row["Gratitude Tag"] || row["Gratitude"] || row["gratitude"] || row["Notes"] || "").trim().slice(0, 400);
+      return { n: name, d: date, f: feeling, s: sleep, g: gratitude };
+    })
+    .filter(r => r.n && r.d);
+
+  allData.sort((a,b) => a.d.localeCompare(b.d));
+
+  if (!allData.length) {
+    document.getElementById("statusBar").textContent = "❌ File loaded but no valid rows found. Check your column names.";
+    return;
+  }
+
+  const names = [...new Set(allData.map(e => e.n))].sort();
+  const sel = document.getElementById("memberSel");
+  sel.innerHTML = '<option value="">— Select a team member —</option>';
+  for (const n of names) {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  }
+
+  const last = allData[allData.length - 1].d;
+  const first = allData[0].d;
+  document.getElementById("statusBar").textContent =
+    `${filename} · ${allData.length.toLocaleString()} submissions · ${names.length} members · ${first} → ${last}`;
+
+  const uploadBtn = document.getElementById("uploadBtn");
+  uploadBtn.classList.add("has-data");
+  document.getElementById("uploadBtnLabel").textContent = "Change File";
+
+  document.getElementById("uploadView").style.display = "none";
+  document.getElementById("dashView").style.display = "block";
+
+  applyFilter();
+}
+
+// ─── Grok AI ──────────────────────────────────────────────
+function toggleGrokPanel() {
+  const panel = document.getElementById("grokPanel");
+  if (!panel) return;
+  panel.classList.toggle("visible");
+  if (panel.classList.contains("visible") && grokApiKey) {
+    document.getElementById("grokKeyInput").value = grokApiKey;
+  }
+}
+
+function buildDataSummary(data) {
+  const names = [...new Set(allData.map(e => e.n))];
+  const total = data.length;
+  const great = data.filter(e => e.f === "Great").length;
+  const fine  = data.filter(e => e.f === "Fine").length;
+  const bad   = data.filter(e => e.f === "Not good").length;
+  const slAvg = avg(data.filter(e => e.s != null).map(e => e.s));
+  const days  = [...new Set(data.map(e => e.d))];
+  const rate  = days.length ? Math.round(total / (days.length * names.length) * 100) : 0;
+  const appr  = getAppreciated(data);
+  const last5 = [...days].sort().reverse().slice(0, 5);
+  const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
+  const absent = names.filter(n => !recent.has(n));
+  const gratitudeSamples = data
+    .filter(e => e.g && e.g.length > 10)
+    .slice(-15)
+    .map(e => `- ${e.n} (${e.d}): "${e.g.slice(0, 120)}"`)
+    .join("\n");
+
+  return `Team size: ${names.length} members
+Date range: ${data[0]?.d || "—"} to ${data[data.length-1]?.d || "—"}
+Total submissions: ${total} over ${days.length} active days
+Participation rate: ${rate}%
+Mood — Great: ${great} (${Math.round(great/total*100)}%), Fine: ${fine} (${Math.round(fine/total*100)}%), Not good: ${bad} (${Math.round(bad/total*100)}%)
+Average sleep score: ${slAvg != null ? fmt(slAvg) + "/10" : "no data"}
+Most appreciated: ${appr.slice(0,5).map(([n,c]) => `${n} (${c}×)`).join(", ") || "no data"}
+Not submitted recently (${absent.length}): ${absent.length ? absent.join(", ") : "everyone submitted"}
+Recent gratitude samples:\n${gratitudeSamples || "none"}`.trim();
+}
+
+async function runGrokInsights() {
+  const keyInput = document.getElementById("grokKeyInput");
+  const key = keyInput.value.trim();
+  if (!key) { keyInput.focus(); return; }
+  grokApiKey = key;
+
+  const genBtn = document.getElementById("grokGenBtn");
+  const resultEl = document.getElementById("grokResult");
+
+  genBtn.disabled = true;
+  genBtn.textContent = "Generating…";
+  resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok…';
+
+  try {
+    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "grok-3-mini",
+        messages: [
+          { role: "system", content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and give 4–5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, focused on wellbeing and team health. No preamble — just the bullets." },
+          { role: "user", content: `Standup data summary:\n\n${buildDataSummary(filtered.length ? filtered : allData)}\n\nProvide 4–5 People Ops insights.` }
+        ],
+        max_tokens: 500,
+        temperature: 0.4
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+
+    const json = await res.json();
+    const text = json.choices?.[0]?.message?.content || "No response.";
+    const formatted = text.split("\n").map(l => l.trim()).filter(Boolean)
+      .map(l => `<p style="margin-bottom:8px">${l.replace(/^\*+|-/, "•")}</p>`).join("");
+    resultEl.innerHTML = `<div style="padding-top:4px">${formatted}</div>`;
+
+  } catch (err) {
+    resultEl.innerHTML = `<span style="color:#dc2626">❌ ${err.message}</span>`;
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = "Generate";
+  }
+}
+
+// ─── Filtering ────────────────────────────────────────────
+function setRange(r) {
+  currentRange = r;
+  document.querySelectorAll(".range-btn").forEach((b,i) =>
+    b.classList.toggle("active", ["7d","30d","90d","all"][i] === r));
+  applyFilter();
+}
+
+function applyFilter() {
+  const days = { "7d":7, "30d":30, "90d":90 }[currentRange];
+  const cut = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0,10) : "2000-01-01";
+  filtered = allData.filter(e => e.d >= cut);
+  renderTab();
+}
+
+function renderTab() {
+  if (currentTab === "company") renderCompany(filtered);
+  else {
+    const sel = document.getElementById("memberSel");
+    if (sel.value) renderIndividual(sel.value);
+  }
+}
+
+function switchTab(t) {
+  currentTab = t;
+  document.querySelectorAll(".tab-btn").forEach((b,i) =>
+    b.classList.toggle("active", i === (t === "company" ? 0 : 1)));
+  document.getElementById("companyView").style.display = t === "company" ? "block" : "none";
+  document.getElementById("individualView").style.display = t === "individual" ? "block" : "none";
+  if (t === "company") renderCompany(filtered);
+}
+
+// ─── Company view ─────────────────────────────────────────
+function renderCompany(data) {
+  if (!data.length) {
+    document.getElementById("companyView").innerHTML = `<div class="err-box">No data found for this date range.</div>`;
+    return;
+  }
+
+  const names = [...new Set(allData.map(e => e.n))].sort();
+  const total = data.length;
+  const great = data.filter(e => e.f === "Great").length;
+  const fine  = data.filter(e => e.f === "Fine").length;
+  const bad   = data.filter(e => e.f === "Not good").length;
+  const slAvg = avg(data.filter(e => e.s != null).map(e => e.s));
+  const days  = [...new Set(data.map(e => e.d))];
+  const rate  = days.length ? Math.round(total / (days.length * names.length) * 100) : 0;
+  const dom   = great >= fine && great >= bad ? "Great" : fine >= bad ? "Fine" : "Not good";
+  const rateCol = rate >= 80 ? "#16a34a" : rate >= 60 ? "#d97706" : "#dc2626";
+
+  const wkMap = {};
+  for (const e of data) {
+    const w = getMon(e.d);
+    if (!wkMap[w]) wkMap[w] = { great:0, fine:0, bad:0, sl:[], cnt:0 };
+    if (e.f === "Great") wkMap[w].great++;
+    else if (e.f === "Fine") wkMap[w].fine++;
+    else wkMap[w].bad++;
+    if (e.s != null) wkMap[w].sl.push(e.s);
+    wkMap[w].cnt++;
+  }
+  const wks = Object.keys(wkMap).sort().slice(-12);
+
+  const last5 = [...days].sort().reverse().slice(0, 5);
+  const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
+  const absent = names.filter(n => !recent.has(n));
+  const appr = getAppreciated(data);
+
+  const grokPanelOpen = document.getElementById("grokPanel")?.classList.contains("visible");
+  const grokPanelKey  = document.getElementById("grokKeyInput")?.value || grokApiKey;
+  const grokResult    = document.getElementById("grokResult")?.innerHTML || "";
+
+  document.getElementById("companyView").innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Submissions</div>
+        <div class="stat-value">${total.toLocaleString()}</div>
+        <div class="stat-sub">${days.length} days · ${names.length} members</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Dominant Mood</div>
+        <div class="stat-value ${moodCls(dom)}" style="font-size:19px">${moodEmoji(dom)}</div>
+        <div class="stat-sub">🟢 ${great} &nbsp;🟡 ${fine} &nbsp;🔴 ${bad}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Sleep Score</div>
+        <div class="stat-value indigo">${fmt(slAvg)}<span style="font-size:15px;color:#94a3b8">/10</span></div>
+        <div class="stat-sub">${data.filter(e=>e.s!=null).length} scores recorded</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Participation Rate</div>
+        <div class="stat-value" style="color:${rateCol}">${rate}%</div>
+        <div class="stat-sub">avg submissions/member/day</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="card-title">Team Mood by Week</div>
+        <canvas id="moodC" height="120"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">Avg Sleep Score by Week</div>
+        <canvas id="sleepC" height="120"></canvas>
+      </div>
+    </div>
+    <div class="bottom-row">
+      <div class="chart-card">
+        <div class="card-title">💛 Most Appreciated (${currentRange === "all" ? "all time" : currentRange})</div>
+        ${appr.length
+          ? `<ul>${appr.map(([n,c],i) => `<li class="list-item"><span>${["🏆","🥈","🥉"][i]||""} ${n}</span><span class="badge-pill">${c} mention${c!==1?"s":""}</span></li>`).join("")}</ul>`
+          : `<p style="color:#94a3b8;font-size:13px;padding:12px 0">No data in this range.</p>`}
+      </div>
+      <div class="chart-card">
+        <div class="card-title">⚠️ Haven't Submitted Recently</div>
+        ${absent.length === 0
+          ? `<p style="color:#16a34a;font-size:13px;padding:12px 0">🎉 Everyone submitted in the last 5 active days!</p>`
+          : `<ul>${absent.slice(0,10).map(n => `<li class="alert-row"><span class="dot ${absent.length > 8 ? "dot-red" : "dot-amber"}"></span>${n}</li>`).join("")}${absent.length>10?`<li style="color:#94a3b8;font-size:12px;padding:6px 0">+${absent.length-10} more</li>`:""}</ul>`}
+      </div>
+    </div>
+    <div class="insights-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="card-title" style="margin-bottom:0">📊 Insights</div>
+        <button class="ai-btn" onclick="toggleGrokPanel()">✨ AI Insights (Grok)</button>
+      </div>
+      <div class="grok-panel${grokPanelOpen ? " visible" : ""}" id="grokPanel">
+        <div class="grok-panel-row">
+          <input type="password" id="grokKeyInput" placeholder="xAI API key  (xai-...)" value="${grokPanelKey}" onkeydown="if(event.key==='Enter')runGrokInsights()" />
+          <button class="gen-btn" id="grokGenBtn" onclick="runGrokInsights()">Generate</button>
+        </div>
+        <div class="grok-hint">Uses <strong>grok-3-mini</strong> — lowest cost. Get a free key at <a href="https://console.x.ai" target="_blank" style="color:#a855f7">console.x.ai</a>.</div>
+        <div class="ai-result" id="grokResult">${grokResult}</div>
+      </div>
+      <div id="insightsBody" class="insights-body"></div>
+    </div>`;
+
+  dc("moodC");
+  new Chart(document.getElementById("moodC"), {
+    type: "bar",
+    data: {
+      labels: wks.map(w => w.slice(5)),
+      datasets: [
+        { label:"Great", data: wks.map(w=>wkMap[w].great), backgroundColor:"#86efac" },
+        { label:"Fine",  data: wks.map(w=>wkMap[w].fine),  backgroundColor:"#fde68a" },
+        { label:"Not good", data: wks.map(w=>wkMap[w].bad), backgroundColor:"#fca5a5" }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{labels:{color:"#64748b",boxWidth:12,font:{size:11}}}}, scales:{x:{stacked:true,ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
+  });
+
+  dc("sleepC");
+  new Chart(document.getElementById("sleepC"), {
+    type: "line",
+    data: {
+      labels: wks.map(w => w.slice(5)),
+      datasets: [{ data: wks.map(w => { const v = avg(wkMap[w].sl); return v != null ? parseFloat(v.toFixed(1)) : null; }), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,0.08)", pointBackgroundColor:"#6366f1", tension:0.3, fill:true, spanGaps:true, pointRadius:4 }]
+    },
+    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:#94a3b8,font:{size:10}},grid:{color:"#f1f5f9"}}} }
+  });
+
+  const el = document.getElementById("insightsBody");
+  const pct = n => Math.round(n / total * 100);
+  const gPct = pct(great), bPct = pct(bad);
+  let html = "";
+  html += `<p><strong>Mood:</strong> ${gPct}% Great, ${pct(fine)}% Fine, ${bPct}% Not good${bPct >= 15 ? " — consider a team check-in" : ""}.</p>`;
+  if (slAvg) html += `<p><strong>Sleep:</strong> Team averaging ${fmt(slAvg)}/10${slAvg < 6 ? " — notably low, worth raising with the team" : slAvg >= 7.5 ? " — the team is well-rested" : ""}.</p>`;
+  html += `<p><strong>Participation:</strong> ${rate}% rate across ${days.length} days${absent.length > 0 ? ` — ${absent.length} member${absent.length > 1 ? "s are" : " is"} missing recent updates.` : "."}</p>`;
+  el.innerHTML = html;
+}
+
+// ─── Individual view ──────────────────────────────────────
+function renderIndividual(name) {
+  if (!name) return;
+  const pd = allData.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
+  if (!pd.length) {
+    document.getElementById("indContent").innerHTML = `<div style="color:#94a3b8;font-size:13px;padding:24px">No data found for ${name}.</div>`;
+    return;
+  }
+
+  const slAvg = avg(pd.filter(e => e.s != null).map(e => e.s));
+  const mAvg  = avg(pd.map(e => moodScore(e.f)));
+  const dom   = mAvg >= 2.5 ? "Great" : mAvg >= 1.5 ? "Fine" : "Not good";
+
+  const udates = [...new Set(pd.map(e => e.d))].sort().reverse();
+  let streak = 0;
+  for (let i = 0; i < udates.length; i++) {
+    if (i === 0) { streak = 1; continue; }
+    const diff = Math.round((new Date(udates[i-1]+"T00:00:00") - new Date(udates[i]+"T00:00:00")) / 86400000);
+    if (diff <= 3) streak++; else break;
+  }
+
+  document.getElementById("indContent").innerHTML = `
+    <div class="ind-grid">
+      <div class="stat-card"><div class="stat-label">Total Submissions</div><div class="stat-value">${pd.length}</div><div class="stat-sub">since ${pd[0].d.slice(5)} · ${streak}-day streak</div></div>
+      <div class="stat-card"><div class="stat-label">Overall Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div><div class="stat-sub">${pd.filter(e=>e.s!=null).length} scores recorded</div></div>
+    </div>
+    <div class="p-charts">
+      <div class="chart-card"><div class="card-title">Mood — last 30 entries</div><canvas id="pMood" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Sleep — last 30 entries</div><canvas id="pSleep" height="140"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">Recent Entries</div>
+      <table class="tbl">
+        <thead><tr><th>Date</th><th>Mood</th><th>Sleep</th><th>Gratitude</th></tr></thead>
+        <tbody>${[...pd].reverse().slice(0,20).map(e => `
+          <tr>
+            <td>${e.d.slice(5)}</td>
+            <td><span class="pill ${pillCls(e.f)}">${e.f}</span></td>
+            <td>${e.s != null ? fmt(e.s) : "—"}</td>
+            <td style="max-width:300px; word-wrap:break-word;">${e.g || "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+
+  const cd = pd.slice(-30);
+
+  dc("pMood");
+  new Chart(document.getElementById("pMood"), {
+    type: "bar",
+    data: {
+      labels: cd.map(e => e.d.slice(5)),
+      datasets: [{
+        label: "Mood Score",
+        data: cd.map(e => moodScore(e.f)),
+        backgroundColor: cd.map(e => e.f === "Great" ? "#86efac" : e.f === "Fine" ? "#fde68a" : "#fca5a5")
+      }]
+    },
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: { 
+        y: { min: 1, max: 3, ticks: { stepSize: 1, callback: v => v===3?"🟢":v===2?"🟡":"🔴" } },
+        x: { ticks: { font: { size: 9 } } }
+      } 
+    }
+  });
+
+  dc("pSleep");
+  new Chart(document.getElementById("pSleep"), {
+    type: "line",
+    data: {
+      labels: cd.map(e => e.d.slice(5)),
+      datasets: [{
+        data: cd.map(e => e.s),
+        borderColor: "#6366f1",
+        backgroundColor: "rgba(99,102,241,0.05)",
+        tension: 0.2,
+        fill: true,
+        spanGaps: true
+      }]
+    },
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { min: 4, max: 10 } } 
+    }
+  });
+}
+</script>
+</body>
+</html>
