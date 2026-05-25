@@ -343,8 +343,14 @@ async function runGrokInsights() {
       body: JSON.stringify({
         model: "grok-3-mini",
         messages: [
-          { role: "system", content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and give 4-5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, focused on wellbeing and team health. No preamble - just the bullets." },
-          { role: "user", content: "Standup data summary:\n\n" + buildDataSummary(filtered.length ? filtered : allData) + "\n\nProvide 4-5 People Ops insights." }
+          { 
+            role: "system", 
+            content: "You are a senior People Operations data scientist. Analyze the team standup data summary provided and return exactly 4 bullet points. You must precisely identify and state: 1) The month(s) with the highest team mood, 2) The month(s) with the lowest team mood, 3) The month(s) with the highest average sleep, and 4) The month(s) with the lowest average sleep. Base this strictly on the date ranges and metrics provided. Keep each bullet short, specific, and actionable for a People Ops manager. No conversational intro or outro text—just the 4 bullets." 
+          },
+          { 
+            role: "user", 
+            content: "Standup data summary:\n\n" + buildDataSummary(filtered.length ? filtered : allData)
+          }
         ],
         max_tokens: 500,
         temperature: 0.4
