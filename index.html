@@ -203,29 +203,37 @@ function parseDate(raw) {
   // 2. Already clean ISO standard format (YYYY-MM-DD)
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
 
-  // 3. Leverage native browser parsing FIRST (handles text timestamps and standard Google Sheets formats flawlessly)
+  // 3. Robust Month-Name handling (e.g., "24-Feb-2026", "24 Feb 2026", "Feb-24-2026")
+  // Detects text-based months and extracts them cleanly
+  const monthMap = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+  };
+  const cleanToken = raw.toLowerCase().replace(/[^a-z0-9]/g, " ");
+  const parts = cleanToken.split(/\s+/).filter(Boolean);
+  
+  if (parts.length === 3) {
+    let day = "", month = "", year = "";
+    parts.forEach(p => {
+      if (monthMap[p.slice(0, 3)]) {
+        month = monthMap[p.slice(0, 3)];
+      } else if (p.length === 4) {
+        year = p;
+      } else {
+        day = p.padStart(2, "0");
+      }
+    });
+    if (year && month && day) {
+      return year + "-" + month + "-" + day;
+    }
+  }
+
+  // 4. Fallback to standard native engine
   const d = new Date(raw);
   if (!isNaN(d.getTime())) {
     return d.toISOString().slice(0, 10);
   }
 
-  // 4. Manual fallback split for standard slash/dash formats if native engine misses it
-  const p = raw.split(/[-/.]/);
-  if (p.length === 3) {
-    let [v1, v2, v3] = p;
-    if (v3.length === 4) {
-      let day = parseInt(v1, 10);
-      let month = parseInt(v2, 10);
-      
-      if (day > 12 && month <= 12) {
-        return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0"); // DD/MM/YYYY
-      } else if (month > 12 && day <= 12) {
-        return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0"); // MM/DD/YYYY
-      }
-      // Default to American standard formatting if ambiguous (like 02/08/2026 for Feb 8th)
-      return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0");
-    }
-  }
   return null;
 }
 
