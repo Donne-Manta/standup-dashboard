@@ -22,12 +22,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .upload-btn{padding:5px 12px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:all .15s}
 .upload-btn:hover{border-color:#6366f1;color:#6366f1}
 .upload-btn.has-data{border-color:#16a34a;color:#16a34a}
-.refresh-btn{padding:5px 11px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:all .15s}
-.refresh-btn:hover{border-color:#6366f1;color:#6366f1}
-.refresh-btn.spinning svg{animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .page{padding:24px;max-width:1200px;margin:0 auto}
-.status-bar{font-size:12px;color:#94a3b8;margin-bottom:18px;height:16px}
+.status-bar{font-size:13px;font-weight:500;color:#64748b;margin-bottom:18px;min-height:20px;padding:6px 12px;background:white;border-radius:6px;border:1px solid #e2e8f0;display:inline-block}
 .tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:20px}
 .tab-btn{padding:9px 18px;border:none;background:none;cursor:pointer;font-size:14px;font-weight:500;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
 .tab-btn:hover{color:#6366f1}
@@ -63,8 +59,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .pill-great{background:#dcfce7;color:#15803d}
 .pill-fine{background:#fef9c3;color:#a16207}
 .pill-bad{background:#fee2e2;color:#dc2626}
-.loading{display:flex;align-items:center;justify-content:center;min-height:300px;gap:10px;color:#94a3b8;font-size:14px}
-.spin{width:18px;height:18px;border:2px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite}
 .err-box{background:#fee2e2;border-radius:10px;padding:16px;color:#dc2626;font-size:13px;margin-bottom:16px}
 .great{color:#16a34a!important}
 .fine{color:#d97706!important}
@@ -126,7 +120,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
       <button class="range-btn" onclick="setRange('90d')">90 days</button>
       <button class="range-btn" onclick="setRange('all')">All time</button>
     </div>
-    <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('fileInput').click()" title="Upload CSV or Excel file">
+    <button class="upload-btn" id="uploadBtn" onclick="triggerNativeUpload()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <span id="uploadBtnLabel">Upload File</span>
     </button>
@@ -134,24 +128,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 </div>
 
 <div class="page">
-  <div class="status-bar" id="statusBar"></div>
+  <div class="status-bar" id="statusBar">ℹ️ Please upload an Excel or CSV standup file to begin.</div>
 
   <div id="uploadView">
     <div class="upload-zone" id="dropZone"
       ondragover="event.preventDefault();this.classList.add('drag-over')"
       ondragleave="this.classList.remove('drag-over')"
       ondrop="handleDrop(event)"
-      onclick="document.getElementById('fileInput').click()">
+      onclick="triggerNativeUpload()">
       <div class="icon">📊</div>
       <h2>Upload your standup data</h2>
-      <p>Drop your file here or click to browse.<br>Supports CSV and Excel (.xlsx) files.</p>
+      <p>Drop your file here or click anywhere inside this box to browse.<br>Supports CSV and Excel (.xlsx) files.</p>
       <div class="how">
         <p><strong>How to export from Google Sheets:</strong></p>
         <p>File → Download → CSV (.csv) or Excel (.xlsx)</p>
         <p style="margin-top:8px"><strong>How to export from Excel:</strong></p>
         <p>Save As → CSV or keep as .xlsx</p>
       </div>
-      <button class="choose-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+      <button class="choose-btn" onclick="event.stopPropagation();triggerNativeUpload()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Choose file
       </button>
@@ -189,6 +183,11 @@ let currentRange = "30d";
 let currentTab = "company";
 let grokApiKey = "";
 
+// ─── Direct Trigger Helper ────────────────────────────────
+function triggerNativeUpload() {
+  document.getElementById('fileInput').click();
+}
+
 // ─── Helpers ──────────────────────────────────────────────
 function cleanName(raw) {
   raw = (raw || "").trim();
@@ -214,25 +213,46 @@ function parseSleep(raw) {
   return Math.round(v * 10) / 10;
 }
 
+// Upgraded parsing fallback engine
+function getFlexibleField(row, targets) {
+  for (let key in row) {
+    let cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (let target of targets) {
+      if (cleanKey.includes(target)) return row[key];
+    }
+  }
+  return "";
+}
+
 function parseDate(raw) {
   if (!raw) return null;
-  
-  // Try to parse standard string date format first (DD/MM/YYYY)
-  const p = raw.toString().trim().split("/");
+  raw = raw.toString().trim();
+
+  // Handle native Excel Serial numbers (e.g., 45231)
+  if (/^\d{5}$/.test(raw)) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const days = parseInt(raw, 10);
+    const convertedDate = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+    return convertedDate.toISOString().slice(0, 10);
+  }
+
+  // Parse YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+
+  // Parse DD/MM/YYYY or MM/DD/YYYY
+  const p = raw.split(/[-/.]/);
   if (p.length === 3) {
-    const [d, m, y] = p;
-    if (y && y.length === 4) {
-      return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+    let [v1, v2, v3] = p;
+    if (v3.length === 4) { // DD/MM/YYYY or MM/DD/YYYY
+      let year = v3;
+      let month = v2.padStart(2, "0");
+      let day = v1.padStart(2, "0");
+      return `${year}-${month}-${day}`;
     }
   }
   
-  // Alternative fallback check for ISO format or native JS date reading
-  const nativeDate = new Date(raw);
-  if (!isNaN(nativeDate.getTime())) {
-    return nativeDate.toISOString().slice(0, 10);
-  }
-  
-  return null;
+  const d = new Date(raw);
+  return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null;
 }
 
 function avg(arr) {
@@ -287,7 +307,7 @@ function handleFileSelect(event) {
 
 function processFile(file) {
   const name = file.name.toLowerCase();
-  document.getElementById("statusBar").textContent = `Reading ${file.name}…`;
+  document.getElementById("statusBar").textContent = `⏳ Reading context details from ${file.name}…`;
 
   if (name.endsWith(".csv")) {
     const reader = new FileReader();
@@ -298,7 +318,7 @@ function processFile(file) {
     reader.onload = e => parseExcel(e.target.result, file.name);
     reader.readAsArrayBuffer(file);
   } else {
-    document.getElementById("statusBar").textContent = "❌ Please upload a .csv or .xlsx file.";
+    document.getElementById("statusBar").textContent = "❌ Please upload a verified .csv or .xlsx file.";
   }
 }
 
@@ -309,7 +329,7 @@ function parseCSV(text, filename) {
     transformHeader: h => h.trim()
   });
   if (!parsed.data.length) {
-    document.getElementById("statusBar").textContent = "❌ No data found in this file.";
+    document.getElementById("statusBar").textContent = "❌ No structural data lines found in this CSV.";
     return;
   }
   loadRows(parsed.data, filename);
@@ -321,23 +341,23 @@ function parseExcel(buffer, filename) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
     if (!rows.length) {
-      document.getElementById("statusBar").textContent = "❌ No data found in this file.";
+      document.getElementById("statusBar").textContent = "❌ Sheet empty or layout parameters invalid.";
       return;
     }
     loadRows(rows, filename);
   } catch (err) {
-    document.getElementById("statusBar").textContent = `❌ Could not read Excel file: ${err.message}`;
+    document.getElementById("statusBar").textContent = `❌ Binary tracking fault: ${err.message}`;
   }
 }
 
 function loadRows(rows, filename) {
   allData = rows
     .map(row => {
-      const name = cleanName(row["Name"] || row["name"] || row["NAME"] || "");
-      const date = parseDate(row["Date"] || row["date"] || row["DATE"] || "");
-      const feeling = parseFeel(row["Feeling"] || row["feeling"] || row["Mood"] || "");
-      const sleep = parseSleep(row["Sleep Score"] || row["Sleep"] || row["sleep"] || row["SLEEP"] || "");
-      const gratitude = (row["Gratitude Tag"] || row["Gratitude"] || row["gratitude"] || row["Notes"] || "").trim().slice(0, 400);
+      const name = cleanName(getFlexibleField(row, ["name", "member", "person"]));
+      const date = parseDate(getFlexibleField(row, ["date", "timestamp", "submitted"]));
+      const feeling = parseFeel(getFlexibleField(row, ["feeling", "mood", "howareyou", "status"]));
+      const sleep = parseSleep(getFlexibleField(row, ["sleep", "hours"]));
+      const gratitude = (getFlexibleField(row, ["gratitude", "notes", "shoutout", "appreciation"])).toString().trim().slice(0, 400);
       return { n: name, d: date, f: feeling, s: sleep, g: gratitude };
     })
     .filter(r => r.n && r.d);
@@ -345,7 +365,7 @@ function loadRows(rows, filename) {
   allData.sort((a,b) => a.d.localeCompare(b.d));
 
   if (!allData.length) {
-    document.getElementById("statusBar").textContent = "❌ File loaded but no valid rows found. Check your column names.";
+    document.getElementById("statusBar").textContent = "❌ System detected matching headers but data format arrays remain empty. Check columns.";
     return;
   }
 
@@ -361,7 +381,7 @@ function loadRows(rows, filename) {
   const last = allData[allData.length - 1].d;
   const first = allData[0].d;
   document.getElementById("statusBar").textContent =
-    `${filename} · ${allData.length.toLocaleString()} submissions · ${names.length} members · ${first} → ${last}`;
+    `✅ ${filename} · ${allData.length.toLocaleString()} entries · ${names.length} members found.`;
 
   const uploadBtn = document.getElementById("uploadBtn");
   uploadBtn.classList.add("has-data");
