@@ -142,7 +142,7 @@ let grokApiKey = "";
 
 // ─── Auto Fetch Initializer ────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  if (GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE") || GOOGLE_SHEET_CSV_URL.trim() === "") {
+  if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE")) {
     document.getElementById("statusBar").textContent = "❌ Setup Incomplete: Please paste your live Google Sheets CSV link.";
     return;
   }
@@ -152,7 +152,7 @@ window.addEventListener('DOMContentLoaded', () => {
 async function fetchCloudData() {
   try {
     const response = await fetch(GOOGLE_SHEET_CSV_URL);
-    if (!response.ok) throw new Error("Could not fetch remote server array configuration");
+    if (!response.ok) throw new Error("Could not fetch remote server configuration");
     const csvText = await response.text();
     
     const parsed = Papa.parse(csvText, {
@@ -162,13 +162,13 @@ async function fetchCloudData() {
     });
     
     if (!parsed.data.length) {
-      document.getElementById("statusBar").textContent = "❌ Error: Google Sheets connection stable but zero matrix rows were returned.";
+      document.getElementById("statusBar").textContent = "❌ Error: Google Sheets connected but zero matrix rows returned.";
       return;
     }
     
     loadRows(parsed.data, "Live Google Sheet");
   } catch (err) {
-    document.getElementById("statusBar").textContent = `❌ Cloud Sync Failure: ${err.message}. Make sure your sheet restriction allows public viewer lookup.`;
+    document.getElementById("statusBar").textContent = `❌ Cloud Sync Failure: ${err.message}. If running locally, this is a normal security block. Uploading to Vercel fixes this.`;
   }
 }
 
@@ -226,7 +226,6 @@ function parseDate(raw) {
     if (v3.length === 4) {
       let day = parseInt(v1, 10);
       let month = parseInt(v2, 10);
-      // Adaptive swap logic to catch both DD/MM and MM/DD exports reliably
       if (day > 12 && month <= 12) {
         return `${v3}-${v2.padStart(2, "0")}-${v1.padStart(2, "0")}`;
       } else if (month > 12 && day <= 12) {
@@ -291,7 +290,7 @@ function loadRows(rows, filename) {
   allData.sort((a,b) => a.d.localeCompare(b.d));
 
   if (!allData.length) {
-    document.getElementById("statusBar").textContent = "❌ Structure Fault: Found document but internal sheet column names do not include 'Name', 'Date', or 'Feeling'.";
+    document.getElementById("statusBar").textContent = "❌ Structure Fault: Found document but columns are mapped incorrectly.";
     return;
   }
 
@@ -422,7 +421,6 @@ function renderTab() {
   }
 }
 
-// ─── Navigation Controller ────────────────────────────────
 function switchTab(t) {
   currentTab = t;
   document.querySelectorAll(".tab-btn").forEach((b,i) =>
@@ -525,7 +523,7 @@ function renderCompany(data) {
       </div>
       <div class="grok-panel${grokPanelOpen ? " visible" : ""}" id="grokPanel">
         <div class="grok-panel-row">
-          <input type="password" id="grokKeyInput" placeholder="xAI API key  (xai-...)" value="${grokPanelKey}" onkeydown="if(event.key==='Enter')runGrokInsights()" />
+          <input type="password" id="grokKeyInput" placeholder="xAI API key (xai-...)" value="${grokPanelKey}" onkeydown="if(event.key==='Enter')runGrokInsights()" />
           <button class="gen-btn" id="grokGenBtn" onclick="runGrokInsights()">Generate</button>
         </div>
         <div class="grok-hint">Uses <strong>grok-3-mini</strong> — lowest cost. Get a free key at <a href="https://console.x.ai" target="_blank" style="color:#a855f7">console.x.ai</a>.</div>
