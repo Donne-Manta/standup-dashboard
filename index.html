@@ -61,7 +61,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .bad{color:#dc2626!important}
 .indigo{color:#6366f1!important}
 
-/* Grok AI panel */
 .ai-btn{padding:5px 12px;border-radius:6px;border:1px solid #a855f7;background:white;color:#a855f7;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;transition:all .15s}
 .ai-btn:hover{background:#a855f7;color:white}
 .grok-panel{background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none}
@@ -126,21 +125,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 </div>
 
 <script>
-// ─── Cloud Sync Configuration ──────────────────────────────
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRU8InZgxsb3djla0WksjC2ufbTlzxvGlPISn_olfaO195ZRb_3FEbVolNdh1Qvw/pub?gid=1668261615&single=true&output=csv";
 
-// ─── Constants ────────────────────────────────────────────
 const KNOWN_NAMES = ["Camille","Chloe Guo","Claudia Ibrahim","Daisy Huang","Dan Franklin","Dani Molina","Desiree Cagalitan-Olaso","Donné Norman","Erica Amaro","Erin Canoy-Yarisantos","Ethan Lott","Fem Bacerra","Gabbie Talan","Ibrahim Aleem","Ivy Pangilinan","James Swain","Judith","Julia Monteoliva","KJ Chang","Karleen Mae Guevara","Katalina Sanabria","Kristy Valencia","Laneza Rimando","Lee","Lia Fuentes","Marecris Soriano","Melanie van der Merwe","Merve Nur Sökmen","Nathan Tomlinson","Red","Sienna Paragas","Spencer Hung","Tomo","Vilécha Morton"];
 const NAMES_BY_LEN = [...KNOWN_NAMES].sort((a,b) => b.length - a.length);
 
-// ─── State ────────────────────────────────────────────────
 let allData = [];
 let filtered = [];
 let currentRange = "30d";
 let currentTab = "company";
 let grokApiKey = "";
 
-// ─── Auto Fetch Initializer ────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
   if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE")) {
     document.getElementById("statusBar").textContent = "X Setup Incomplete: Please paste your live Google Sheets CSV link.";
@@ -172,7 +167,6 @@ async function fetchCloudData() {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────
 function cleanName(raw) {
   raw = (raw || "").trim();
   if (!raw) return raw;
@@ -181,6 +175,7 @@ function cleanName(raw) {
   return raw;
 }
 
+// Fixed spacing metrics here
 function parseFeel(raw) {
   const f = (raw || "").toLowerCase();
   if (f.includes("not good") || f.includes("red_circle") || f.includes("cranky")) return "Not good";
@@ -210,16 +205,13 @@ function getFlexibleField(row, targets) {
 function parseDate(raw) {
   if (!raw) return null;
   raw = raw.toString().trim();
-
   if (/^\d{5}$/.test(raw)) {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     const days = parseInt(raw, 10);
     const convertedDate = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
     return convertedDate.toISOString().slice(0, 10);
   }
-
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-
   const p = raw.split(/[-/.]/);
   if (p.length === 3) {
     let [v1, v2, v3] = p;
@@ -234,7 +226,6 @@ function parseDate(raw) {
       return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0");
     }
   }
-  
   const d = new Date(raw);
   return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null;
 }
@@ -302,11 +293,9 @@ function loadRows(rows, filename) {
     o.value = n; o.textContent = n;
     sel.appendChild(o);
   }
-
   applyFilter();
 }
 
-// ─── Grok AI ──────────────────────────────────────────────
 function toggleGrokPanel() {
   const panel = document.getElementById("grokPanel");
   if (!panel) return;
@@ -334,7 +323,6 @@ function buildDataSummary(data) {
     .slice(-15)
     .map(e => "- " + e.n + " (" + e.d + "): \"" + e.g.slice(0, 120) + "\"")
     .join("\n");
-
   return "Team size: " + names.length + " members\nDate range: " + (data[0]?.d || "—") + " to " + (data[data.length-1]?.d || "—") + "\nTotal submissions: " + total + " over " + days.length + " active days\nParticipation rate: " + rate + "%\nMood - Great: " + great + " (" + Math.round(great/total*100) + "%), Fine: " + fine + " (" + Math.round(fine/total*100) + "%), Not good: " + bad + " (" + Math.round(bad/total*100) + "%)\nAverage sleep score: " + (slAvg != null ? fmt(slAvg) + "/10" : "no data") + "\nMost appreciated: " + (appr.slice(0,5).map(([n,c]) => n + " (" + c + "x)").join(", ") || "no data") + "\nNot submitted recently (" + absent.length + "): " + (absent.length ? absent.join(", ") : "everyone submitted") + "\nRecent gratitude samples:\n" + (gratitudeSamples || "none");
 }
 
@@ -343,14 +331,11 @@ async function runGrokInsights() {
   const key = keyInput.value.trim();
   if (!key) { keyInput.focus(); return; }
   grokApiKey = key;
-
   const genBtn = document.getElementById("grokGenBtn");
   const resultEl = document.getElementById("grokResult");
-
   genBtn.disabled = true;
   genBtn.textContent = "Generating...";
   resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok...';
-
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
@@ -365,27 +350,23 @@ async function runGrokInsights() {
         temperature: 0.4
       })
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error?.message || "API error " + res.status);
     }
-
     const json = await res.json();
     const text = json.choices?.[0]?.message?.content || "No response.";
     const formatted = text.split("\n").map(l => l.trim()).filter(Boolean)
       .map(l => '<p style="margin-bottom:8px">' + l.replace(/^\*+|-/, "•") + '</p>').join("");
     resultEl.innerHTML = '<div style="padding-top:4px">' + formatted + '</div>';
-
   } catch (err) {
     resultEl.innerHTML = '<span style="color:#dc2626">X ' + err.message + '</span>';
-  } finally {
+  } finaly {
     genBtn.disabled = false;
     genBtn.textContent = "Generate";
   }
 }
 
-// ─── Filtering ────────────────────────────────────────────
 function setRange(r) {
   currentRange = r;
   document.querySelectorAll(".range-btn").forEach((b,i) =>
@@ -408,6 +389,13 @@ function renderTab() {
   }
 }
 
+document.addEventListener("click", function(e) {
+  if (e.target && e.target.classList.contains("tab-btn")) {
+    let targetTab = e.target.getAttribute("onclick").match(/'([^']+)'/)[1];
+    switchTab(targetTab);
+  }
+});
+
 function switchTab(t) {
   currentTab = t;
   document.querySelectorAll(".tab-btn").forEach((b,i) =>
@@ -417,13 +405,11 @@ function switchTab(t) {
   if (t === "company") renderCompany(filtered);
 }
 
-// ─── Company view ─────────────────────────────────────────
 function renderCompany(data) {
   if (!data.length) {
     document.getElementById("companyView").innerHTML = '<div class="err-box">No data found for this date range.</div>';
     return;
   }
-
   const names = [...new Set(allData.map(e => e.n))].sort();
   const total = data.length;
   const great = data.filter(e => e.f === "Great").length;
@@ -434,7 +420,6 @@ function renderCompany(data) {
   const rate  = days.length ? Math.round(total / (days.length * names.length) * 100) : 0;
   const dom   = great >= fine && great >= bad ? "Great" : fine >= bad ? "Fine" : "Not good";
   const rateCol = rate >= 80 ? "#16a34a" : rate >= 60 ? "#d97706" : "#dc2626";
-
   const wkMap = {};
   for (const e of data) {
     const w = getMon(e.d);
@@ -446,22 +431,19 @@ function renderCompany(data) {
     wkMap[w].cnt++;
   }
   const wks = Object.keys(wkMap).sort().slice(-12);
-
   const last5 = [...days].sort().reverse().slice(0, 5);
   const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
   const absent = names.filter(n => !recent.has(n));
   const appr = getAppreciated(data);
-
   const grokPanelOpen = document.getElementById("grokPanel")?.classList.contains("visible");
   const grokPanelKey  = document.getElementById("grokKeyInput")?.value || grokApiKey;
   const grokResult    = document.getElementById("grokResult")?.innerHTML || "";
-
   document.getElementById("companyView").innerHTML = `
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Submissions</div>
         <div class="stat-value">${total.toLocaleString()}</div>
-        <div class="stat-sub">${days.length} days · ${names.length} members</div>
+        <div class="stat-sub">${days.length} days . ${names.length} members</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Dominant Mood</div>
@@ -491,16 +473,16 @@ function renderCompany(data) {
     </div>
     <div class="bottom-row">
       <div class="chart-card">
-        <div class="card-title">💛 Most Appreciated (${currentRange === "all" ? "all time" : currentRange})</div>
+        <div class="card-title">💛 Most Appreciated</div>
         ${appr.length
-          ? `<ul>${appr.map(([n,c],i) => `<li class="list-item"><span>${["🏆","🥈","🥉"][i]||""} ${n}</span><span class="badge-pill">${c} mention${c!==1?"s":""}</span></li>`).join("")}</ul>`
+          ? `<ul>${appr.map(([n,c],i) => `<li class="list-item"><span>${["🏆","🥈","🥉"][i]||""} ${n}</span><span class="badge-pill">${c} mentions</span></li>`).join("")}</ul>`
           : `<p style="color:#94a3b8;font-size:13px;padding:12px 0">No data in this range.</p>`}
       </div>
       <div class="chart-card">
         <div class="card-title">⚠️ Haven't Submitted Recently</div>
         ${absent.length === 0
-          ? `<p style="color:#16a34a;font-size:13px;padding:12px 0">🎉 Everyone submitted in the last 5 active days!</p>`
-          : `<ul>${absent.slice(0,10).map(n => `<li class="alert-row"><span class="dot ${absent.length > 8 ? "dot-red" : "dot-amber"}"></span>${n}</li>`).join("")}${absent.length>10?`<li style="color:#94a3b8;font-size:12px;padding:6px 0">+${absent.length-10} more</li>`:""}</ul>`}
+          ? `<p style="color:#16a34a;font-size:13px;padding:12px 0">Everyone submitted recently!</p>`
+          : `<ul>${absent.slice(0,10).map(n => `<li class="alert-row"><span class="dot-amber"></span>${n}</li>`).join("")}</ul>`}
       </div>
     </div>
     <div class="insights-card">
@@ -510,10 +492,9 @@ function renderCompany(data) {
       </div>
       <div class="grok-panel${grokPanelOpen ? " visible" : ""}" id="grokPanel">
         <div class="grok-panel-row">
-          <input type="password" id="grokKeyInput" placeholder="xAI API key (xai-...)" value="${grokPanelKey}" onkeydown="if(event.key==='Enter')runGrokInsights()" />
+          <input type="password" id="grokKeyInput" placeholder="xAI API key (xai-...)" value="${grokPanelKey}" />
           <button class="gen-btn" id="grokGenBtn" onclick="runGrokInsights()">Generate</button>
         </div>
-        <div class="grok-hint">Uses <strong>grok-3-mini</strong> — lowest cost. Get a free key at <a href="https://console.x.ai" target="_blank" style="color:#a855f7">console.x.ai</a>.</div>
         <div class="ai-result" id="grokResult">${grokResult}</div>
       </div>
       <div id="insightsBody" class="insights-body"></div>
@@ -547,13 +528,11 @@ function renderCompany(data) {
   const pct = n => Math.round(n / total * 100);
   const gPct = pct(great), bPct = pct(bad);
   let html = "";
-  html += "<p><strong>Mood:</strong> " + gPct + "% Great, " + pct(fine) + "% Fine, " + bPct + "% Not good" + (bPct >= 15 ? " — consider a team check-in" : "") + ".</p>";
-  if (slAvg) html += "<p><strong>Sleep:</strong> Team averaging " + fmt(slAvg) + "/10" + (slAvg < 6 ? " — notably low, worth raising with the team" : slAvg >= 7.5 ? " — the team is well-rested" : "") + ".</p>";
-  html += "<p><strong>Participation:</strong> " + rate + "% rate across " + days.length + " days" + (absent.length > 0 ? " — " + absent.length + " member" + (absent.length > 1 ? "s are" : " is") + " missing recent updates." : ".");
+  html += "<p><strong>Mood:</strong> " + gPct + "% Great, " + pct(fine) + "% Fine, " + bPct + "% Not good.</p>";
+  if (slAvg) html += "<p><strong>Sleep:</strong> Team averaging " + fmt(slAvg) + "/10.</p>";
   el.innerHTML = html;
 }
 
-// ─── Individual view ──────────────────────────────────────
 function renderIndividual(name) {
   if (!name) return;
   const pd = allData.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
@@ -561,11 +540,9 @@ function renderIndividual(name) {
     document.getElementById("indContent").innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:24px">No data found for ' + name + '.</div>';
     return;
   }
-
   const slAvg = avg(pd.filter(e => e.s != null).map(e => e.s));
   const mAvg  = avg(pd.map(e => moodScore(e.f)));
   const dom   = mAvg >= 2.5 ? "Great" : mAvg >= 1.5 ? "Fine" : "Not good";
-
   const udates = [...new Set(pd.map(e => e.d))].sort().reverse();
   let streak = 0;
   for (let i = 0; i < udates.length; i++) {
@@ -573,12 +550,11 @@ function renderIndividual(name) {
     const diff = Math.round((new Date(udates[i-1]+"T00:00:00") - new Date(udates[i]+"T00:00:00")) / 86400000);
     if (diff <= 3) streak++; else break;
   }
-
   document.getElementById("indContent").innerHTML = `
     <div class="ind-grid">
-      <div class="stat-card"><div class="stat-label">Total Submissions</div><div class="stat-value">${pd.length}</div><div class="stat-sub">since ${pd[0].d.slice(5)} · ${streak}-day streak</div></div>
+      <div class="stat-card"><div class="stat-label">Total Submissions</div><div class="stat-value">${pd.length}</div><div class="stat-sub">${streak}-day streak</div></div>
       <div class="stat-card"><div class="stat-label">Overall Mood</div><div class="stat-value ${moodCls(dom)}" style="font-size:18px">${moodEmoji(dom)}</div><div class="stat-sub">avg ${fmt(mAvg)} / 3.0</div></div>
-      <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div><div class="stat-sub">${pd.filter(e=>e.s!=null).length} scores recorded</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div></div>
     </div>
     <div class="p-charts">
       <div class="chart-card"><div class="card-title">Mood — last 30 entries</div><canvas id="pMood" height="140"></canvas></div>
@@ -600,7 +576,6 @@ function renderIndividual(name) {
     </div>`;
 
   const cd = pd.slice(-30);
-
   dc("pMood");
   new Chart(document.getElementById("pMood"), {
     type: "bar",
@@ -617,7 +592,7 @@ function renderIndividual(name) {
       maintainAspectRatio: true,
       plugins: { legend: { display: false } },
       scales: { 
-        y: { min: 1, max: 3, ticks: { stepSize: 1, callback: function(v){ return v===3?"🟢":v===2?"🟡":"🔴"; } } },
+        y: { min: 1, max: 3, ticks: { stepSize: 1, callback: function(v){ return v===3?"Great":v===2?"Fine":"Bad"; } } },
         x: { ticks: { font: { size: 9 } } }
       } 
     }
