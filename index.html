@@ -141,9 +141,9 @@ let currentTab = "company";
 let grokApiKey = "";
 
 // ─── Auto Fetch Initializer ────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener("DOMContentLoaded", () => {
   if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE")) {
-    document.getElementById("statusBar").textContent = "❌ Setup Incomplete: Please paste your live Google Sheets CSV link.";
+    document.getElementById("statusBar").textContent = "X Setup Incomplete: Please paste your live Google Sheets CSV link.";
     return;
   }
   fetchCloudData();
@@ -162,13 +162,13 @@ async function fetchCloudData() {
     });
     
     if (!parsed.data.length) {
-      document.getElementById("statusBar").textContent = "❌ Error: Google Sheets connected but zero matrix rows returned.";
+      document.getElementById("statusBar").textContent = "X Error: Google Sheets connected but zero matrix rows returned.";
       return;
     }
     
     loadRows(parsed.data, "Live Google Sheet");
   } catch (err) {
-    document.getElementById("statusBar").textContent = `❌ Cloud Sync Failure: ${err.message}. If running locally, this is a normal security block. Uploading to Vercel fixes this.`;
+    document.getElementById("statusBar").textContent = "Please push this build to Vercel to bypass local file browser blocks.";
   }
 }
 
@@ -227,11 +227,11 @@ function parseDate(raw) {
       let day = parseInt(v1, 10);
       let month = parseInt(v2, 10);
       if (day > 12 && month <= 12) {
-        return `${v3}-${v2.padStart(2, "0")}-${v1.padStart(2, "0")}`;
+        return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0");
       } else if (month > 12 && day <= 12) {
-        return `${v3}-${v1.padStart(2, "0")}-${v2.padStart(2, "0")}`;
+        return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0");
       }
-      return `${v3}-${v2.padStart(2, "0")}-${v1.padStart(2, "0")}`;
+      return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0");
     }
   }
   
@@ -290,7 +290,7 @@ function loadRows(rows, filename) {
   allData.sort((a,b) => a.d.localeCompare(b.d));
 
   if (!allData.length) {
-    document.getElementById("statusBar").textContent = "❌ Structure Fault: Found document but columns are mapped incorrectly.";
+    document.getElementById("statusBar").textContent = "X Structure Fault: Found document but columns are mapped incorrectly.";
     return;
   }
 
@@ -302,11 +302,6 @@ function loadRows(rows, filename) {
     o.value = n; o.textContent = n;
     sel.appendChild(o);
   }
-
-  const last = allData[allData.length - 1].d;
-  const first = allData[0].d;
-  document.getElementById("statusBar").textContent =
-    `✅ Connected · ${allData.length.toLocaleString()} team logs loaded successfully.`;
 
   applyFilter();
 }
@@ -337,18 +332,10 @@ function buildDataSummary(data) {
   const gratitudeSamples = data
     .filter(e => e.g && e.g.length > 10)
     .slice(-15)
-    .map(e => `- ${e.n} (${e.d}): "${e.g.slice(0, 120)}"`)
+    .map(e => "- " + e.n + " (" + e.d + "): \"" + e.g.slice(0, 120) + "\"")
     .join("\n");
 
-  return `Team size: ${names.length} members
-Date range: ${data[0]?.d || "—"} to ${data[data.length-1]?.d || "—"}
-Total submissions: ${total} over ${days.length} active days
-Participation rate: ${rate}%
-Mood — Great: ${great} (${Math.round(great/total*100)}%), Fine: ${fine} (${Math.round(fine/total*100)}%), Not good: ${bad} (${Math.round(bad/total*100)}%)
-Average sleep score: ${slAvg != null ? fmt(slAvg) + "/10" : "no data"}
-Most appreciated: ${appr.slice(0,5).map(([n,c]) => `${n} (${c}×)`).join(", ") || "no data"}
-Not submitted recently (${absent.length}): ${absent.length ? absent.join(", ") : "everyone submitted"}
-Recent gratitude samples:\n${gratitudeSamples || "none"}`.trim();
+  return "Team size: " + names.length + " members\nDate range: " + (data[0]?.d || "—") + " to " + (data[data.length-1]?.d || "—") + "\nTotal submissions: " + total + " over " + days.length + " active days\nParticipation rate: " + rate + "%\nMood - Great: " + great + " (" + Math.round(great/total*100) + "%), Fine: " + fine + " (" + Math.round(fine/total*100) + "%), Not good: " + bad + " (" + Math.round(bad/total*100) + "%)\nAverage sleep score: " + (slAvg != null ? fmt(slAvg) + "/10" : "no data") + "\nMost appreciated: " + (appr.slice(0,5).map(([n,c]) => n + " (" + c + "x)").join(", ") || "no data") + "\nNot submitted recently (" + absent.length + "): " + (absent.length ? absent.join(", ") : "everyone submitted") + "\nRecent gratitude samples:\n" + (gratitudeSamples || "none");
 }
 
 async function runGrokInsights() {
@@ -361,18 +348,18 @@ async function runGrokInsights() {
   const resultEl = document.getElementById("grokResult");
 
   genBtn.disabled = true;
-  genBtn.textContent = "Generating…";
-  resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok…';
+  genBtn.textContent = "Generating...";
+  resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok...';
 
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({
         model: "grok-3-mini",
         messages: [
-          { role: "system", content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and give 4–5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, focused on wellbeing and team health. No preamble — just the bullets." },
-          { role: "user", content: `Standup data summary:\n\n${buildDataSummary(filtered.length ? filtered : allData)}\n\nProvide 4–5 People Ops insights.` }
+          { role: "system", content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and give 4-5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, focused on wellbeing and team health. No preamble - just the bullets." },
+          { role: "user", content: "Standup data summary:\n\n" + buildDataSummary(filtered.length ? filtered : allData) + "\n\nProvide 4-5 People Ops insights." }
         ],
         max_tokens: 500,
         temperature: 0.4
@@ -381,17 +368,17 @@ async function runGrokInsights() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `API error ${res.status}`);
+      throw new Error(err.error?.message || "API error " + res.status);
     }
 
     const json = await res.json();
     const text = json.choices?.[0]?.message?.content || "No response.";
     const formatted = text.split("\n").map(l => l.trim()).filter(Boolean)
-      .map(l => `<p style="margin-bottom:8px">${l.replace(/^\*+|-/, "•")}</p>`).join("");
-    resultEl.innerHTML = `<div style="padding-top:4px">${formatted}</div>`;
+      .map(l => '<p style="margin-bottom:8px">' + l.replace(/^\*+|-/, "•") + '</p>').join("");
+    resultEl.innerHTML = '<div style="padding-top:4px">' + formatted + '</div>';
 
   } catch (err) {
-    resultEl.innerHTML = `<span style="color:#dc2626">❌ ${err.message}</span>`;
+    resultEl.innerHTML = '<span style="color:#dc2626">X ' + err.message + '</span>';
   } finally {
     genBtn.disabled = false;
     genBtn.textContent = "Generate";
@@ -433,7 +420,7 @@ function switchTab(t) {
 // ─── Company view ─────────────────────────────────────────
 function renderCompany(data) {
   if (!data.length) {
-    document.getElementById("companyView").innerHTML = `<div class="err-box">No data found for this date range.</div>`;
+    document.getElementById("companyView").innerHTML = '<div class="err-box">No data found for this date range.</div>';
     return;
   }
 
@@ -560,9 +547,9 @@ function renderCompany(data) {
   const pct = n => Math.round(n / total * 100);
   const gPct = pct(great), bPct = pct(bad);
   let html = "";
-  html += `<p><strong>Mood:</strong> ${gPct}% Great, ${pct(fine)}% Fine, ${bPct}% Not good${bPct >= 15 ? " — consider a team check-in" : ""}.</p>`;
-  if (slAvg) html += `<p><strong>Sleep:</strong> Team averaging ${fmt(slAvg)}/10${slAvg < 6 ? " — notably low, worth raising with the team" : slAvg >= 7.5 ? " — the team is well-rested" : ""}.</p>`;
-  html += `<p><strong>Participation:</strong> ${rate}% rate across ${days.length} days${absent.length > 0 ? ` — ${absent.length} member${absent.length > 1 ? "s are" : " is"} missing recent updates.` : "."}</p>`;
+  html += "<p><strong>Mood:</strong> " + gPct + "% Great, " + pct(fine) + "% Fine, " + bPct + "% Not good" + (bPct >= 15 ? " — consider a team check-in" : "") + ".</p>";
+  if (slAvg) html += "<p><strong>Sleep:</strong> Team averaging " + fmt(slAvg) + "/10" + (slAvg < 6 ? " — notably low, worth raising with the team" : slAvg >= 7.5 ? " — the team is well-rested" : "") + ".</p>";
+  html += "<p><strong>Participation:</strong> " + rate + "% rate across " + days.length + " days" + (absent.length > 0 ? " — " + absent.length + " member" + (absent.length > 1 ? "s are" : " is") + " missing recent updates." : ".");
   el.innerHTML = html;
 }
 
@@ -571,7 +558,7 @@ function renderIndividual(name) {
   if (!name) return;
   const pd = allData.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
   if (!pd.length) {
-    document.getElementById("indContent").innerHTML = `<div style="color:#94a3b8;font-size:13px;padding:24px">No data found for ${name}.</div>`;
+    document.getElementById("indContent").innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:24px">No data found for ' + name + '.</div>';
     return;
   }
 
@@ -630,7 +617,7 @@ function renderIndividual(name) {
       maintainAspectRatio: true,
       plugins: { legend: { display: false } },
       scales: { 
-        y: { min: 1, max: 3, ticks: { stepSize: 1, callback: v => v===3?"🟢":v===2?"🟡":"🔴" } },
+        y: { min: 1, max: 3, ticks: { stepSize: 1, callback: function(v){ return v===3?"🟢":v===2?"🟡":"🔴"; } } },
         x: { ticks: { font: { size: 9 } } }
       } 
     }
