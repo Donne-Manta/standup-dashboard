@@ -33,16 +33,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .chart-card{background:white;border-radius:12px;padding:16px;border:1px solid #e2e8f0}
 .card-title{font-size:13px;font-weight:600;color:#334155;margin-bottom:14px}
 .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.insights-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}
 .list-item:last-child{border-bottom:none}
 .badge-pill{background:#ede9fe;color:#6366f1;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
+.badge-pill.pill-green{background:#dcfce7;color:#15803d}
+.badge-pill.pill-amber{background:#fef9c3;color:#a16207}
+.badge-pill.pill-red{background:#fee2e2;color:#dc2626}
 .alert-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}
 .alert-row:last-child{border-bottom:none}
 .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot-amber{background:#f59e0b}
 .dot-red{background:#ef4444}
-.insights-card{background:white;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px}
-.insights-body p{font-size:13px;line-height:1.7;color:#475569;margin-bottom:6px}
 .ind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .p-charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .member-sel-row{margin-bottom:16px}
@@ -61,23 +63,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .bad{color:#dc2626!important}
 .indigo{color:#6366f1!important}
 
-.ai-btn{padding:5px 12px;border-radius:6px;border:1px solid #a855f7;background:white;color:#a855f7;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;transition:all .15s}
-.ai-btn:hover{background:#a855f7;color:white}
-.grok-panel{background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none}
-.grok-panel.visible{display:block}
-.grok-panel-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.grok-panel input{flex:1;padding:7px 12px;border-radius:6px;border:1px solid #d8b4fe;background:white;font-size:12px;color:#1e293b;outline:none}
-.grok-panel input:focus{border-color:#a855f7}
-.grok-panel .gen-btn{padding:7px 14px;border-radius:6px;border:none;background:#a855f7;color:white;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
-.grok-panel .gen-btn:hover{background:#9333ea}
-.grok-panel .gen-btn:disabled{opacity:.5;cursor:not-allowed}
-.grok-hint{font-size:11px;color:#a78bfa}
-.ai-result{font-size:13px;line-height:1.75;color:#475569;border-top:1px solid #e9d5ff;padding-top:12px;margin-top:4px}
-.ai-spin{width:14px;height:14px;border:2px solid #e9d5ff;border-top-color:#a855f7;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
-
+@media(max-width:1024px){
+  .stats-grid, .insights-row {grid-template-columns:1fr 1fr}
+}
 @media(max-width:768px){
-  .stats-grid{grid-template-columns:1fr 1fr}
-  .charts-row,.bottom-row,.p-charts{grid-template-columns:1fr}
+  .stats-grid, .charts-row, .bottom-row, .p-charts, .insights-row {grid-template-columns:1fr}
   .ind-grid{grid-template-columns:1fr 1fr}
   .topbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}
   .range-btns{flex-wrap:wrap}
@@ -134,7 +124,6 @@ let allData = [];
 let filtered = [];
 let currentRange = "30d";
 let currentTab = "company";
-let grokApiKey = "";
 
 window.addEventListener("DOMContentLoaded", () => {
   if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("PASTE_YOUR_LINK_HERE")) {
@@ -234,7 +223,6 @@ function avg(arr) {
   return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
 }
 
-// Global template conversions
 function fmt(n, dp=1) { return n != null ? n.toFixed(dp) : "—"; }
 function moodScore(f) { return f === "Great" ? 3 : f === "Fine" ? 2 : 1; }
 function moodEmoji(f) { return f === "Great" ? "🟢 Great" : f === "Fine" ? "🟡 Fine" : "🔴 Not good"; }
@@ -266,6 +254,52 @@ function getAppreciated(data) {
   return Object.entries(cnt).sort((a,b) => b[1]-a[1]).slice(0,8);
 }
 
+function getMonthlyInsights(data) {
+  const months = {};
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  data.forEach(e => {
+    if (!e.d) return;
+    const yearMonth = e.d.slice(0, 7); // "YYYY-MM"
+    if (!months[yearMonth]) {
+      months[yearMonth] = { moodScores: [], sleepScores: [] };
+    }
+    months[yearMonth].moodScores.push(moodScore(e.f));
+    if (e.s != null) months[yearMonth].sleepScores.push(e.s);
+  });
+
+  const summary = [];
+  for (const [ym, obj] of Object.entries(months)) {
+    const year = ym.split("-")[0];
+    const monthIdx = parseInt(ym.split("-")[1], 10) - 1;
+    const label = `${monthNames[monthIdx]} ${year}`;
+    summary.push({
+      label: label,
+      avgMood: avg(obj.moodScores),
+      avgSleep: avg(obj.sleepScores)
+    });
+  }
+
+  const result = { highestMood: "—", lowestMood: "—", highestSleep: "—", lowestSleep: "—" };
+  if (!summary.length) return result;
+
+  const validMoods = summary.filter(m => m.avgMood !== null);
+  if (validMoods.length) {
+    validMoods.sort((a, b) => b.avgMood - a.avgMood);
+    result.highestMood = `${validMoods[0].label} (${fmt(validMoods[0].avgMood)}/3)`;
+    result.lowestMood = `${validMoods[validMoods.length - 1].label} (${fmt(validMoods[validMoods.length - 1].avgMood)}/3)`;
+  }
+
+  const validSleep = summary.filter(m => m.avgSleep !== null);
+  if (validSleep.length) {
+    validSleep.sort((a, b) => b.avgSleep - a.avgSleep);
+    result.highestSleep = `${validSleep[0].label} (${fmt(validSleep[0].avgSleep)}/10)`;
+    result.lowestSleep = `${validSleep[validSleep.length - 1].label} (${fmt(validSleep[validSleep.length - 1].avgSleep)}/10)`;
+  }
+
+  return result;
+}
+
 function loadRows(rows, filename) {
   allData = rows
     .map(row => {
@@ -294,83 +328,6 @@ function loadRows(rows, filename) {
     sel.appendChild(o);
   }
   applyFilter();
-}
-
-function toggleGrokPanel() {
-  const panel = document.getElementById("grokPanel");
-  if (!panel) return;
-  panel.classList.toggle("visible");
-  if (panel.classList.contains("visible") && grokApiKey) {
-    document.getElementById("grokKeyInput").value = grokApiKey;
-  }
-}
-
-function buildDataSummary(data) {
-  const names = [...new Set(allData.map(e => e.n))];
-  const total = data.length;
-  const great = data.filter(e => e.f === "Great").length;
-  const fine  = data.filter(e => e.f === "Fine").length;
-  const bad   = data.filter(e => e.f === "Not good").length;
-  const slAvg = avg(data.filter(e => e.s != null).map(e => e.s));
-  const days  = [...new Set(data.map(e => e.d))];
-  const rate  = days.length ? Math.round(total / (days.length * names.length) * 100) : 0;
-  const appr  = getAppreciated(data);
-  const last5 = [...days].sort().reverse().slice(0, 5);
-  const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
-  const absent = names.filter(n => !recent.has(n));
-  const gratitudeSamples = data
-    .filter(e => e.g && e.g.length > 10)
-    .slice(-15)
-    .map(e => "- " + e.n + " (" + e.d + "): \"" + e.g.slice(0, 120) + "\"")
-    .join("\n");
-  return "Team size: " + names.length + " members\nDate range: " + (data[0]?.d || "—") + " to " + (data[data.length-1]?.d || "—") + "\nTotal submissions: " + total + " over " + days.length + " active days\nParticipation rate: " + rate + "%\nMood - Great: " + great + " (" + Math.round(great/total*100) + "%), Fine: " + fine + " (" + Math.round(fine/total*100) + "%), Not good: " + bad + " (" + Math.round(bad/total*100) + "%)\nAverage sleep score: " + (slAvg != null ? fmt(slAvg) + "/10" : "no data") + "\nMost appreciated: " + (appr.slice(0,5).map(([n,c]) => n + " (" + c + "x)").join(", ") || "no data") + "\nNot submitted recently (" + absent.length + "): " + (absent.length ? absent.join(", ") : "everyone submitted") + "\nRecent gratitude samples:\n" + (gratitudeSamples || "none");
-}
-
-async function runGrokInsights() {
-  const keyInput = document.getElementById("grokKeyInput");
-  const key = keyInput.value.trim();
-  if (!key) { keyInput.focus(); return; }
-  grokApiKey = key;
-  const genBtn = document.getElementById("grokGenBtn");
-  const resultEl = document.getElementById("grokResult");
-  genBtn.disabled = true;
-  genBtn.textContent = "Generating...";
-  resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok...';
-  try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a senior People Operations data scientist. Analyze the team standup data summary provided and return exactly 4 bullet points. You must precisely identify and state: 1) The month(s) with the highest team mood, 2) The month(s) with the lowest team mood, 3) The month(s) with the highest average sleep, and 4) The month(s) with the lowest average sleep. Base this strictly on the date ranges and metrics provided. Keep each bullet short, specific, and actionable for a People Ops manager. No conversational intro or outro text—just the 4 bullets." 
-          },
-          { 
-            role: "user", 
-            content: "Standup data summary:\n\n" + buildDataSummary(filtered.length ? filtered : allData)
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.4
-      })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || "API error " + res.status);
-    }
-    const json = await res.json();
-    const text = json.choices?.[0]?.message?.content || "No response.";
-    const formatted = text.split("\n").map(l => l.trim()).filter(Boolean)
-      .map(l => '<p style="margin-bottom:8px">' + l.replace(/^\*+|-/, "•") + '</p>').join("");
-    resultEl.innerHTML = '<div style="padding-top:4px">' + formatted + '</div>';
-  } catch (err) {
-    resultEl.innerHTML = '<span style="color:#dc2626">X ' + err.message + '</span>';
-  } finally {
-    genBtn.disabled = false;
-    genBtn.textContent = "Generate";
-  }
 }
 
 function setRange(r) {
@@ -441,9 +398,10 @@ function renderCompany(data) {
   const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
   const absent = names.filter(n => !recent.has(n));
   const appr = getAppreciated(data);
-  const grokPanelOpen = document.getElementById("grokPanel")?.classList.contains("visible");
-  const grokPanelKey  = document.getElementById("grokKeyInput")?.value || grokApiKey;
-  const grokResult    = document.getElementById("grokResult")?.innerHTML || "";
+  
+  // Calculate automated monthly tracking metrics
+  const monthly = getMonthlyInsights(data);
+
   document.getElementById("companyView").innerHTML = `
     <div class="stats-grid">
       <div class="stat-card">
@@ -467,6 +425,7 @@ function renderCompany(data) {
         <div class="stat-sub">avg submissions/member/day</div>
       </div>
     </div>
+    
     <div class="charts-row">
       <div class="chart-card">
         <div class="card-title">Team Mood by Week</div>
@@ -477,6 +436,7 @@ function renderCompany(data) {
         <canvas id="sleepC" height="120"></canvas>
       </div>
     </div>
+    
     <div class="bottom-row">
       <div class="chart-card">
         <div class="card-title">💛 Most Appreciated</div>
@@ -491,19 +451,37 @@ function renderCompany(data) {
           : `<ul>${absent.slice(0,10).map(n => `<li class="alert-row"><span class="dot-amber"></span>${n}</li>`).join("")}</ul>`}
       </div>
     </div>
-    <div class="insights-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div class="card-title" style="margin-bottom:0">📊 Insights</div>
-        <button class="ai-btn" onclick="toggleGrokPanel()">✨ AI Insights (Grok)</button>
-      </div>
-      <div class="grok-panel${grokPanelOpen ? " visible" : ""}" id="grokPanel">
-        <div class="grok-panel-row">
-          <input type="password" id="grokKeyInput" placeholder="xAI API key (xai-...)" value="${grokPanelKey}" />
-          <button class="gen-btn" id="grokGenBtn" onclick="runGrokInsights()">Generate</button>
+
+    <div class="card-title" style="margin: 24px 0 12px 4px; font-size:14px; font-weight:700;">📊 Insights</div>
+    <div class="insights-row">
+      <div class="chart-card">
+        <div class="stat-label">Months with the highest mood</div>
+        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#16a34a;">
+          <span>🟢 ${monthly.highestMood.split(" ")[0] || ""} ${monthly.highestMood.split(" ")[1] || ""}</span>
+          <span class="badge-pill pill-green">${monthly.highestMood.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
         </div>
-        <div class="ai-result" id="grokResult">${grokResult}</div>
       </div>
-      <div id="insightsBody" class="insights-body"></div>
+      <div class="chart-card">
+        <div class="stat-label">Months with the lowest mood</div>
+        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#dc2626;">
+          <span>🔴 ${monthly.lowestMood.split(" ")[0] || ""} ${monthly.lowestMood.split(" ")[1] || ""}</span>
+          <span class="badge-pill pill-red">${monthly.lowestMood.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="stat-label">Months with the highest sleep</div>
+        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#6366f1;">
+          <span>🌙 ${monthly.highestSleep.split(" ")[0] || ""} ${monthly.highestSleep.split(" ")[1] || ""}</span>
+          <span class="badge-pill pill-amber" style="background:#e0e7ff; color:#4338ca;">${monthly.highestSleep.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="stat-label">Months with the lowest sleep</div>
+        <div class="list-item" style="padding-top:12px; font-size:14px; font-weight:600; color:#d97706;">
+          <span>⚠️ ${monthly.lowestSleep.split(" ")[0] || ""} ${monthly.lowestSleep.split(" ")[1] || ""}</span>
+          <span class="badge-pill pill-amber">${monthly.lowestSleep.match(/\(([^)]+)\)/)?.[1] || "—"}</span>
+        </div>
+      </div>
     </div>`;
 
   dc("moodC");
@@ -530,13 +508,7 @@ function renderCompany(data) {
     options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
   });
 
-  const el = document.getElementById("insightsBody");
-  const pct = n => Math.round(n / total * 100);
-  const gPct = pct(great), bPct = pct(bad);
-  let html = "";
-  html += "<p><strong>Mood:</strong> " + gPct + "% Great, " + pct(fine) + "% Fine, " + bPct + "% Not good.</p>";
-  if (slAvg) html += "<p><strong>Sleep:</strong> Team averaging " + fmt(slAvg) + "/10.</p>";
-  el.innerHTML = html;
+  document.getElementById("statusBar").textContent = `✅ Connected · Status normal · Data parsed dynamically.`;
 }
 
 // ─── Individual view ──────────────────────────────────────
@@ -564,8 +536,8 @@ function renderIndividual(name) {
       <div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value indigo" style="font-size:26px">${fmt(slAvg)}<span style="font-size:14px;color:#94a3b8">/10</span></div></div>
     </div>
     <div class="p-charts">
-      <div class="chart-card"><div class="card-title">Mood — last 30 entries</div><canvas id="pMood" height="140"></canvas></div>
-      <div class="chart-card"><div class="card-title">Sleep — last 30 entries</div><canvas id="pSleep" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Mood Trend (Selected Range)</div><canvas id="pMood" height="140"></canvas></div>
+      <div class="chart-card"><div class="card-title">Sleep Trend (Selected Range)</div><canvas id="pSleep" height="140"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Recent Entries</div>
