@@ -161,6 +161,7 @@ function cleanName(raw) {
   return raw;
 }
 
+// Fixed metric formatting engines
 function parseFeel(raw) {
   const f = (raw || "").toLowerCase();
   if (f.includes("not good") || f.includes("red_circle") || f.includes("cranky")) return "Not good";
@@ -251,7 +252,6 @@ function getAppreciated(data) {
   return Object.entries(cnt).sort((a,b) => b[1]-a[1]).slice(0,8);
 }
 
-// Upgraded to extract arrays of top 3 highest and lowest months
 function getTopThreeMonthlyInsights(data) {
   const months = {};
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -281,28 +281,64 @@ function getTopThreeMonthlyInsights(data) {
   const result = { highestMood: [], lowestMood: [], highestSleep: [], lowestSleep: [] };
   if (!summary.length) return result;
 
-  // Sort and isolate for Mood Metrics
   const validMoods = summary.filter(m => m.avgMood !== null);
   if (validMoods.length) {
     validMoods.sort((a, b) => b.avgMood - a.avgMood);
     result.highestMood = validMoods.slice(0, 3);
-    
-    // Sort in reverse order for lowest tracking calculations
     const lowMoods = [...validMoods].sort((a, b) => a.avgMood - b.avgMood);
     result.lowestMood = lowMoods.slice(0, 3);
   }
 
-  // Sort and isolate for Sleep Metrics
   const validSleep = summary.filter(m => m.avgSleep !== null);
   if (validSleep.length) {
     validSleep.sort((a, b) => b.avgSleep - a.avgSleep);
     result.highestSleep = validSleep.slice(0, 3);
-    
     const lowSleep = [...validSleep].sort((a, b) => a.avgSleep - b.avgSleep);
     result.lowestSleep = lowSleep.slice(0, 3);
   }
 
   return result;
+}
+
+// Custom Mathematical filter parsing for flagging at-risk individuals
+function getAtRiskTeamMembers(data, rangeMode) {
+  const memberMap = {};
+  
+  data.forEach(e => {
+    if (!e.n) return;
+    if (!memberMap[e.n]) {
+      memberMap[e.n] = { moods: [], sleeps: [] };
+    }
+    memberMap[e.n].moods.push(moodScore(e.f));
+    if (e.s != null) memberMap[e.n].sleeps.push(e.s);
+  });
+
+  // Pick adaptive threshold metrics based on the top bar selection state
+  const moodLimit  = (rangeMode === "7d") ? 2.0 : 2.3;
+  const sleepLimit = (rangeMode === "7d") ? 5.0 : 5.5;
+
+  const atRiskList = [];
+  for (const [name, obj] of Object.entries(memberMap)) {
+    const userMoodAvg = avg(obj.moods);
+    const userSleepAvg = avg(obj.sleeps);
+
+    // Trigger flag condition if mood OR sleep falls below parameters
+    const isMoodAtRisk = (userMoodAvg !== null && userMoodAvg <= moodLimit);
+    const isSleepAtRisk = (userSleepAvg !== null && userSleepAvg <= sleepLimit);
+
+    if (isMoodAtRisk || isSleepAtRisk) {
+      atRiskList.push({
+        name: name,
+        mood: userMoodAvg,
+        sleep: userSleepAvg,
+        reasonMood: isMoodAtRisk,
+        reasonSleep: isSleepAtRisk
+      });
+    }
+  }
+
+  // Sort by lowest mood average first
+  return atRiskList.sort((a, b) => (a.mood || 3) - (b.mood || 3));
 }
 
 function loadRows(rows, filename) {
@@ -404,8 +440,10 @@ function renderCompany(data) {
   const absent = names.filter(n => !recent.has(n));
   const appr = getAppreciated(data);
   
-  // Calculate top 3 automated arrays
   const monthly = getTopThreeMonthlyInsights(data);
+  
+  // Isolate flagged at risk individuals
+  const atRiskMembers = getAtRiskTeamMembers(data, currentRange);
 
   document.getElementById("companyView").innerHTML = `
     <div class="stats-grid">
@@ -499,6 +537,40 @@ function renderCompany(data) {
             </li>`).join("") : '<li style="color:#94a3b8; font-size:12px;">—</li>'}
         </ul>
       </div>
+    </div>
+
+    <div class="card-title" style="margin: 24px 0 12px 4px; font-size:14px; font-weight:700;">🚨 At Risk Team Members (${currentRange === '7d' ? '7d limits' : 'Global limits'})</div>
+    <div class="chart-card" style="margin-bottom: 24px;">
+      ${atRiskMembers.length === 0 
+        ? `<p style="color:#16a34a; font-size:13px; padding:12px 0; text-align:center; font-weight:500;">🎉 Excellent! No team members currently score below safety thresholds for this timeframe.</p>` 
+        : `
+        <table class="tbl" style="width:100%;">
+          <thead>
+            <tr>
+              <th style="width:30%;">Team Member</th>
+              <th style="width:35%;">Avg Mood Score</th>
+              <th style="width:35%;">Avg Sleep Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${atRiskMembers.map(m => `
+              <tr>
+                <td style="font-weight:700; padding:12px 10px; color:#0f172a;">${m.name}</td>
+                <td style="padding:12px 10px;">
+                  <span class="pill ${m.mood >= 2.5 ? 'pill-great' : m.mood >= 1.8 ? 'pill-fine' : 'pill-bad'}" style="${m.reasonMood ? 'border: 2px solid #dc2626; font-weight:800;' : ''}">
+                    ${fmt(m.mood)} / 3.0 ${m.reasonMood ? ' ⚠️' : ''}
+                  </span>
+                </td>
+                <td style="padding:12px 10px;">
+                  <span class="pill ${m.sleep >= 7.5 ? 'pill-great' : m.sleep >= 5.6 ? 'pill-fine' : 'pill-bad'}" style="${m.reasonSleep ? 'border: 2px solid #dc2626; font-weight:800;' : ''}">
+                    ${fmt(m.sleep)} / 10.0 ${m.reasonSleep ? ' ⚠️' : ''}
+                  </span>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`
+      }
     </div>`;
 
   dc("moodC");
@@ -522,12 +594,13 @@ function renderCompany(data) {
       labels: wks.map(w => w.slice(5)),
       datasets: [{ data: wks.map(w => { const v = avg(wkMap[w].sl); return v != null ? parseFloat(v.toFixed(1)) : null; }), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,0.08)", pointBackgroundColor:"#6366f1", tension:0.3, fill:true, spanGaps:true, pointRadius:4 }]
     },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
+    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:#f1f5f9}}} }
   });
 
   document.getElementById("statusBar").textContent = "✅ Connected · Analytics metrics compiled dynamically.";
 }
 
+// ─── Individual view ──────────────────────────────────────
 function renderIndividual(name) {
   if (!name) return;
   const pd = filtered.filter(e => e.n === name).sort((a,b) => a.d.localeCompare(b.d));
