@@ -6,6 +6,7 @@
 <title>Standup Dashboard – Manta Sleep</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh}
@@ -13,11 +14,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .logo{display:flex;align-items:center;gap:10px}
 .logo h1{font-size:17px;font-weight:700;color:#0f172a}
 .logo .badge{background:#ede9fe;color:#6366f1;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
-.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-right{display:flex;align-items:center;gap:8px}
 .range-btns{display:flex;gap:4px}
 .range-btn{padding:5px 11px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:500;transition:all .15s}
 .range-btn:hover{border-color:#6366f1;color:#6366f1}
 .range-btn.active{background:#6366f1;border-color:#6366f1;color:white}
+.upload-btn{padding:5px 12px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:all .15s}
+.upload-btn:hover{border-color:#6366f1;color:#6366f1}
+.upload-btn.has-data{border-color:#16a34a;color:#16a34a}
 .refresh-btn{padding:5px 11px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:all .15s}
 .refresh-btn:hover{border-color:#6366f1;color:#6366f1}
 .refresh-btn.spinning svg{animation:spin .8s linear infinite}
@@ -66,11 +70,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .fine{color:#d97706!important}
 .bad{color:#dc2626!important}
 .indigo{color:#6366f1!important}
+
+/* Upload drop zone */
+.upload-zone{background:white;border-radius:16px;border:2px dashed #c7d2fe;padding:56px 32px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+.upload-zone:hover,.upload-zone.drag-over{border-color:#6366f1;background:#f5f3ff}
+.upload-zone .icon{font-size:48px;margin-bottom:16px}
+.upload-zone h2{font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px}
+.upload-zone p{font-size:13px;color:#94a3b8;margin-bottom:20px;line-height:1.6}
+.upload-zone .how{background:#f8fafc;border-radius:10px;padding:14px 20px;margin:0 auto 20px;max-width:420px;text-align:left}
+.upload-zone .how p{font-size:12px;color:#64748b;margin-bottom:4px}
+.upload-zone .how p:last-child{margin-bottom:0}
+.upload-zone .how strong{color:#334155}
+.choose-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#6366f1;color:white;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.choose-btn:hover{background:#4f46e5}
+
 /* Grok AI panel */
 .ai-btn{padding:5px 12px;border-radius:6px;border:1px solid #a855f7;background:white;color:#a855f7;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;transition:all .15s}
 .ai-btn:hover{background:#a855f7;color:white}
-.ai-btn:disabled{opacity:.5;cursor:not-allowed}
-.ai-btn.loading-ai{background:#f5f3ff;color:#a855f7;border-color:#c4b5fd}
 .grok-panel{background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none}
 .grok-panel.visible{display:block}
 .grok-panel-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
@@ -80,17 +96,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .grok-panel .gen-btn:hover{background:#9333ea}
 .grok-panel .gen-btn:disabled{opacity:.5;cursor:not-allowed}
 .grok-hint{font-size:11px;color:#a78bfa}
-.ai-result{font-size:13px;line-height:1.75;color:#475569;border-top:1px solid #e9d5ff;padding-top:12px;margin-top:4px;white-space:pre-wrap}
-.ai-result strong{color:#7c3aed}
+.ai-result{font-size:13px;line-height:1.75;color:#475569;border-top:1px solid #e9d5ff;padding-top:12px;margin-top:4px}
 .ai-spin{width:14px;height:14px;border:2px solid #e9d5ff;border-top-color:#a855f7;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+
+#fileInput{display:none}
 @media(max-width:768px){
   .stats-grid{grid-template-columns:1fr 1fr}
   .charts-row,.bottom-row,.p-charts{grid-template-columns:1fr}
   .ind-grid{grid-template-columns:1fr 1fr}
+  .topbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}
+  .range-btns{flex-wrap:wrap}
 }
 </style>
 </head>
 <body>
+
+<input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)" />
 
 <div class="topbar">
   <div class="logo">
@@ -105,32 +126,54 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
       <button class="range-btn" onclick="setRange('90d')">90 days</button>
       <button class="range-btn" onclick="setRange('all')">All time</button>
     </div>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
-      <svg id="refreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-      Refresh
+    <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('fileInput').click()" title="Upload CSV or Excel file">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span id="uploadBtnLabel">Upload File</span>
     </button>
   </div>
 </div>
 
 <div class="page">
-  <div class="status-bar" id="statusBar">Loading standup data…</div>
+  <div class="status-bar" id="statusBar"></div>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('company')">Company</button>
-    <button class="tab-btn" onclick="switchTab('individual')">Individual</button>
-  </div>
-
-  <div id="companyView">
-    <div class="loading"><div class="spin"></div>Fetching from Google Sheets…</div>
-  </div>
-
-  <div id="individualView" style="display:none">
-    <div class="member-sel-row">
-      <select id="memberSel" onchange="renderIndividual(this.value)">
-        <option value="">— Select a team member —</option>
-      </select>
+  <div id="uploadView">
+    <div class="upload-zone" id="dropZone"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDrop(event)"
+      onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📊</div>
+      <h2>Upload your standup data</h2>
+      <p>Drop your file here or click to browse.<br>Supports CSV and Excel (.xlsx) files.</p>
+      <div class="how">
+        <p><strong>How to export from Google Sheets:</strong></p>
+        <p>File → Download → CSV (.csv) or Excel (.xlsx)</p>
+        <p style="margin-top:8px"><strong>How to export from Excel:</strong></p>
+        <p>Save As → CSV or keep as .xlsx</p>
+      </div>
+      <button class="choose-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Choose file
+      </button>
     </div>
-    <div id="indContent"><div style="text-align:center;color:#94a3b8;padding:48px;font-size:14px">Select a team member to view their history.</div></div>
+  </div>
+
+  <div id="dashView" style="display:none">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('company')">Company</button>
+      <button class="tab-btn" onclick="switchTab('individual')">Individual</button>
+    </div>
+
+    <div id="companyView"></div>
+
+    <div id="individualView" style="display:none">
+      <div class="member-sel-row">
+        <select id="memberSel" onchange="renderIndividual(this.value)">
+          <option value="">— Select a team member —</option>
+        </select>
+      </div>
+      <div id="indContent"><div style="text-align:center;color:#94a3b8;padding:48px;font-size:14px">Select a team member to view their history.</div></div>
+    </div>
   </div>
 </div>
 
@@ -139,19 +182,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 const KNOWN_NAMES = ["Camille","Chloe Guo","Claudia Ibrahim","Daisy Huang","Dan Franklin","Dani Molina","Desiree Cagalitan-Olaso","Donné Norman","Erica Amaro","Erin Canoy-Yarisantos","Ethan Lott","Fem Bacerra","Gabbie Talan","Ibrahim Aleem","Ivy Pangilinan","James Swain","Judith","Julia Monteoliva","KJ Chang","Karleen Mae Guevara","Katalina Sanabria","Kristy Valencia","Laneza Rimando","Lee","Lia Fuentes","Marecris Soriano","Melanie van der Merwe","Merve Nur Sökmen","Nathan Tomlinson","Red","Sienna Paragas","Spencer Hung","Tomo","Vilécha Morton"];
 const NAMES_BY_LEN = [...KNOWN_NAMES].sort((a,b) => b.length - a.length);
 
-// Google Sheet ID — update if the sheet changes
-const SHEET_ID = "1fMEwVzO_hufFx5RtJGPxauRsjCEvlt65";
-const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
-// Free CORS proxy fallback (no account needed, no credits)
-const PROXY_URL = `https://corsproxy.io/?url=${encodeURIComponent(SHEET_URL)}`;
-
 // ─── State ────────────────────────────────────────────────
 let allData = [];
 let filtered = [];
 let currentRange = "30d";
 let currentTab = "company";
-let grokApiKey = "";          // stored in memory only (no localStorage)
-let lastFilteredSnapshot = null; // for Grok context
+let grokApiKey = "";
 
 // ─── Helpers ──────────────────────────────────────────────
 function cleanName(raw) {
@@ -222,90 +258,109 @@ function getAppreciated(data) {
   return Object.entries(cnt).sort((a,b) => b[1]-a[1]).slice(0,8);
 }
 
-// ─── Data loading (no Netlify — fetches Google Sheets directly) ───
-async function loadData() {
-  const btn = document.getElementById("refreshBtn");
-  btn.classList.add("spinning");
+// ─── File handling ────────────────────────────────────────
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById("dropZone").classList.remove("drag-over");
+  const file = event.dataTransfer.files[0];
+  if (file) processFile(file);
+}
 
-  let csvText = null;
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+  event.target.value = ""; // reset so same file can be re-uploaded
+}
 
-  // 1. Try fetching directly from Google (works when sheet is publicly shared)
-  try {
-    const res = await fetch(SHEET_URL, { signal: AbortSignal.timeout(8000) });
-    if (res.ok) {
-      csvText = await res.text();
-      // Google sometimes returns an HTML error page — detect that
-      if (csvText.trim().startsWith("<!")) throw new Error("Got HTML instead of CSV");
-    }
-  } catch (e) {
-    csvText = null;
+function processFile(file) {
+  const name = file.name.toLowerCase();
+  document.getElementById("statusBar").textContent = `Reading ${file.name}…`;
+
+  if (name.endsWith(".csv")) {
+    const reader = new FileReader();
+    reader.onload = e => parseCSV(e.target.result, file.name);
+    reader.readAsText(file);
+  } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    const reader = new FileReader();
+    reader.onload = e => parseExcel(e.target.result, file.name);
+    reader.readAsArrayBuffer(file);
+  } else {
+    document.getElementById("statusBar").textContent = "❌ Please upload a .csv or .xlsx file.";
   }
+}
 
-  // 2. Fall back to free CORS proxy (corsproxy.io — no account, no credits)
-  if (!csvText) {
-    try {
-      const res = await fetch(PROXY_URL, { signal: AbortSignal.timeout(12000) });
-      if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
-      csvText = await res.text();
-    } catch (e) {
-      document.getElementById("statusBar").textContent = `Error: Could not fetch sheet — ${e.message}`;
-      document.getElementById("companyView").innerHTML =
-        `<div class="err-box">❌ Failed to load data: ${e.message}<br><small>Make sure the Google Sheet is shared as "Anyone with the link can view."</small></div>`;
-      btn.classList.remove("spinning");
+function parseCSV(text, filename) {
+  const parsed = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: h => h.trim()
+  });
+  if (!parsed.data.length) {
+    document.getElementById("statusBar").textContent = "❌ No data found in this file.";
+    return;
+  }
+  loadRows(parsed.data, filename);
+}
+
+function parseExcel(buffer, filename) {
+  try {
+    const wb = XLSX.read(buffer, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    if (!rows.length) {
+      document.getElementById("statusBar").textContent = "❌ No data found in this file.";
       return;
     }
-  }
-
-  try {
-    const parsed = Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: h => h.trim()
-    });
-
-    if (parsed.errors.length && !parsed.data.length) {
-      throw new Error("Could not parse CSV from Google Sheets.");
-    }
-
-    allData = parsed.data
-      .map(row => {
-        const name = cleanName(row["Name"] || row["name"] || row["NAME"] || "");
-        const date = parseDate(row["Date"] || row["date"] || row["DATE"] || "");
-        const feeling = parseFeel(row["Feeling"] || row["feeling"] || row["Mood"] || "");
-        const sleep = parseSleep(row["Sleep Score"] || row["Sleep"] || row["sleep"] || row["SLEEP"] || "");
-        const gratitude = (row["Gratitude Tag"] || row["Gratitude"] || row["gratitude"] || row["Notes"] || "").trim().slice(0, 400);
-        return { n: name, d: date, f: feeling, s: sleep, g: gratitude };
-      })
-      .filter(r => r.n && r.d);
-
-    allData.sort((a,b) => a.d.localeCompare(b.d));
-
-    if (!allData.length) throw new Error("Sheet parsed successfully but no rows found.");
-
-    const names = [...new Set(allData.map(e => e.n))].sort();
-    const sel = document.getElementById("memberSel");
-    const prev = sel.value;
-    sel.innerHTML = '<option value="">— Select a team member —</option>';
-    for (const n of names) {
-      const o = document.createElement("option");
-      o.value = n; o.textContent = n;
-      if (n === prev) o.selected = true;
-      sel.appendChild(o);
-    }
-
-    const last = allData[allData.length - 1].d;
-    const first = allData[0].d;
-    document.getElementById("statusBar").textContent =
-      `${allData.length.toLocaleString()} submissions · ${names.length} members · ${first} → ${last} · Updated ${new Date().toLocaleTimeString()}`;
-
-    applyFilter();
+    loadRows(rows, filename);
   } catch (err) {
-    document.getElementById("statusBar").textContent = `Error: ${err.message}`;
-    document.getElementById("companyView").innerHTML =
-      `<div class="err-box">❌ Failed to load data: ${err.message}</div>`;
-  } finally {
-    btn.classList.remove("spinning");
+    document.getElementById("statusBar").textContent = `❌ Could not read Excel file: ${err.message}`;
   }
+}
+
+function loadRows(rows, filename) {
+  allData = rows
+    .map(row => {
+      const name = cleanName(row["Name"] || row["name"] || row["NAME"] || "");
+      const date = parseDate(row["Date"] || row["date"] || row["DATE"] || "");
+      const feeling = parseFeel(row["Feeling"] || row["feeling"] || row["Mood"] || "");
+      const sleep = parseSleep(row["Sleep Score"] || row["Sleep"] || row["sleep"] || row["SLEEP"] || "");
+      const gratitude = (row["Gratitude Tag"] || row["Gratitude"] || row["gratitude"] || row["Notes"] || "").trim().slice(0, 400);
+      return { n: name, d: date, f: feeling, s: sleep, g: gratitude };
+    })
+    .filter(r => r.n && r.d);
+
+  allData.sort((a,b) => a.d.localeCompare(b.d));
+
+  if (!allData.length) {
+    document.getElementById("statusBar").textContent = "❌ File loaded but no valid rows found. Check your column names.";
+    return;
+  }
+
+  // Populate member dropdown
+  const names = [...new Set(allData.map(e => e.n))].sort();
+  const sel = document.getElementById("memberSel");
+  sel.innerHTML = '<option value="">— Select a team member —</option>';
+  for (const n of names) {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  }
+
+  // Update UI
+  const last = allData[allData.length - 1].d;
+  const first = allData[0].d;
+  document.getElementById("statusBar").textContent =
+    `${filename} · ${allData.length.toLocaleString()} submissions · ${names.length} members · ${first} → ${last}`;
+
+  const uploadBtn = document.getElementById("uploadBtn");
+  uploadBtn.classList.add("has-data");
+  document.getElementById("uploadBtnLabel").textContent = "Change File";
+
+  // Show dashboard
+  document.getElementById("uploadView").style.display = "none";
+  document.getElementById("dashView").style.display = "block";
+
+  applyFilter();
 }
 
 // ─── Grok AI ──────────────────────────────────────────────
@@ -328,47 +383,31 @@ function buildDataSummary(data) {
   const days  = [...new Set(data.map(e => e.d))];
   const rate  = days.length ? Math.round(total / (days.length * names.length) * 100) : 0;
   const appr  = getAppreciated(data);
-
   const last5 = [...days].sort().reverse().slice(0, 5);
   const recent = new Set(data.filter(e => last5.includes(e.d)).map(e => e.n));
   const absent = names.filter(n => !recent.has(n));
-
-  // Sample 15 recent gratitude entries for Grok context
   const gratitudeSamples = data
     .filter(e => e.g && e.g.length > 10)
     .slice(-15)
     .map(e => `- ${e.n} (${e.d}): "${e.g.slice(0, 120)}"`)
     .join("\n");
 
-  return `
-Team size: ${names.length} members
+  return `Team size: ${names.length} members
 Date range: ${data[0]?.d || "—"} to ${data[data.length-1]?.d || "—"}
 Total submissions: ${total} over ${days.length} active days
-Participation rate: ${rate}% (avg submissions per member per day)
-
-Mood breakdown:
-  Great: ${great} (${Math.round(great/total*100)}%)
-  Fine: ${fine} (${Math.round(fine/total*100)}%)
-  Not good: ${bad} (${Math.round(bad/total*100)}%)
-
+Participation rate: ${rate}%
+Mood — Great: ${great} (${Math.round(great/total*100)}%), Fine: ${fine} (${Math.round(fine/total*100)}%), Not good: ${bad} (${Math.round(bad/total*100)}%)
 Average sleep score: ${slAvg != null ? fmt(slAvg) + "/10" : "no data"}
-
-Most appreciated team members (gratitude mentions):
-${appr.slice(0,5).map(([n,c]) => `  ${n}: ${c} mentions`).join("\n") || "  No data"}
-
-Members who haven't submitted in the last 5 active days (${absent.length}):
-${absent.length ? absent.join(", ") : "None — everyone submitted"}
-
-Recent gratitude entries (sample):
-${gratitudeSamples || "No entries"}
-`.trim();
+Most appreciated: ${appr.slice(0,5).map(([n,c]) => `${n} (${c}×)`).join(", ") || "no data"}
+Not submitted recently (${absent.length}): ${absent.length ? absent.join(", ") : "everyone submitted"}
+Recent gratitude samples:\n${gratitudeSamples || "none"}`.trim();
 }
 
 async function runGrokInsights() {
   const keyInput = document.getElementById("grokKeyInput");
   const key = keyInput.value.trim();
   if (!key) { keyInput.focus(); return; }
-  grokApiKey = key; // keep in memory for this session
+  grokApiKey = key;
 
   const genBtn = document.getElementById("grokGenBtn");
   const resultEl = document.getElementById("grokResult");
@@ -377,26 +416,15 @@ async function runGrokInsights() {
   genBtn.textContent = "Generating…";
   resultEl.innerHTML = '<span class="ai-spin"></span> Asking Grok…';
 
-  const summary = buildDataSummary(filtered.length ? filtered : allData);
-
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`
-      },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
       body: JSON.stringify({
         model: "grok-3-mini",
         messages: [
-          {
-            role: "system",
-            content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and respond with 4–5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, and focus on wellbeing, engagement, and team health. Use plain language. No preamble, just the bullets."
-          },
-          {
-            role: "user",
-            content: `Here is the standup data summary for the selected period:\n\n${summary}\n\nProvide 4–5 People Ops insights based on this data.`
-          }
+          { role: "system", content: "You are a People Operations analyst for Manta Sleep, a fast-growing ecommerce company. Analyze team standup data and give 4–5 concise, actionable bullet-point insights for the People Ops Manager. Be specific, practical, focused on wellbeing and team health. No preamble — just the bullets." },
+          { role: "user", content: `Standup data summary:\n\n${buildDataSummary(filtered.length ? filtered : allData)}\n\nProvide 4–5 People Ops insights.` }
         ],
         max_tokens: 500,
         temperature: 0.4
@@ -410,15 +438,8 @@ async function runGrokInsights() {
 
     const json = await res.json();
     const text = json.choices?.[0]?.message?.content || "No response.";
-
-    // Format bullets nicely
-    const formatted = text
-      .split("\n")
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(line => `<p style="margin-bottom:8px">${line.replace(/^\*+|-/, "•")}</p>`)
-      .join("");
-
+    const formatted = text.split("\n").map(l => l.trim()).filter(Boolean)
+      .map(l => `<p style="margin-bottom:8px">${l.replace(/^\*+|-/, "•")}</p>`).join("");
     resultEl.innerHTML = `<div style="padding-top:4px">${formatted}</div>`;
 
   } catch (err) {
@@ -439,9 +460,7 @@ function setRange(r) {
 
 function applyFilter() {
   const days = { "7d":7, "30d":30, "90d":90 }[currentRange];
-  const cut = days
-    ? new Date(Date.now() - days * 86400000).toISOString().slice(0,10)
-    : "2000-01-01";
+  const cut = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0,10) : "2000-01-01";
   filtered = allData.filter(e => e.d >= cut);
   renderTab();
 }
@@ -466,8 +485,7 @@ function switchTab(t) {
 // ─── Company view ─────────────────────────────────────────
 function renderCompany(data) {
   if (!data.length) {
-    document.getElementById("companyView").innerHTML =
-      `<div class="err-box">No data found for this date range.</div>`;
+    document.getElementById("companyView").innerHTML = `<div class="err-box">No data found for this date range.</div>`;
     return;
   }
 
@@ -499,7 +517,6 @@ function renderCompany(data) {
   const absent = names.filter(n => !recent.has(n));
   const appr = getAppreciated(data);
 
-  // Preserve Grok panel state if already open
   const grokPanelOpen = document.getElementById("grokPanel")?.classList.contains("visible");
   const grokPanelKey  = document.getElementById("grokKeyInput")?.value || grokApiKey;
   const grokResult    = document.getElementById("grokResult")?.innerHTML || "";
@@ -551,37 +568,22 @@ function renderCompany(data) {
           : `<ul>${absent.slice(0,10).map(n => `<li class="alert-row"><span class="dot ${absent.length > 8 ? "dot-red" : "dot-amber"}"></span>${n}</li>`).join("")}${absent.length>10?`<li style="color:#94a3b8;font-size:12px;padding:6px 0">+${absent.length-10} more</li>`:""}</ul>`}
       </div>
     </div>
-
-    <!-- ✨ AI + Rule-based Insights Card -->
     <div class="insights-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div class="card-title" style="margin-bottom:0">📊 Insights</div>
-        <button class="ai-btn" onclick="toggleGrokPanel()" title="Generate AI insights using Grok">
-          ✨ AI Insights (Grok)
-        </button>
+        <button class="ai-btn" onclick="toggleGrokPanel()">✨ AI Insights (Grok)</button>
       </div>
-
-      <!-- Grok panel — hidden until the button is clicked -->
       <div class="grok-panel${grokPanelOpen ? " visible" : ""}" id="grokPanel">
         <div class="grok-panel-row">
-          <input
-            type="password"
-            id="grokKeyInput"
-            placeholder="xAI API key  (xai-...)"
-            value="${grokPanelKey}"
-            onkeydown="if(event.key==='Enter')runGrokInsights()"
-          />
+          <input type="password" id="grokKeyInput" placeholder="xAI API key  (xai-...)" value="${grokPanelKey}" onkeydown="if(event.key==='Enter')runGrokInsights()" />
           <button class="gen-btn" id="grokGenBtn" onclick="runGrokInsights()">Generate</button>
         </div>
-        <div class="grok-hint">Uses <strong>grok-3-mini</strong> — minimal tokens, lowest cost. Get a free key at <a href="https://console.x.ai" target="_blank" style="color:#a855f7">console.x.ai</a>.</div>
+        <div class="grok-hint">Uses <strong>grok-3-mini</strong> — lowest cost. Get a free key at <a href="https://console.x.ai" target="_blank" style="color:#a855f7">console.x.ai</a>.</div>
         <div class="ai-result" id="grokResult">${grokResult}</div>
       </div>
-
-      <!-- Rule-based insights (always shown) -->
       <div id="insightsBody" class="insights-body"></div>
     </div>`;
 
-  // Mood chart
   dc("moodC");
   new Chart(document.getElementById("moodC"), {
     type: "bar",
@@ -596,7 +598,6 @@ function renderCompany(data) {
     options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{labels:{color:"#64748b",boxWidth:12,font:{size:11}}}}, scales:{x:{stacked:true,ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
   });
 
-  // Sleep chart
   dc("sleepC");
   new Chart(document.getElementById("sleepC"), {
     type: "line",
@@ -607,7 +608,6 @@ function renderCompany(data) {
     options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}},y:{min:4,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
   });
 
-  // Rule-based insights (fast, no API)
   const el = document.getElementById("insightsBody");
   const pct = n => Math.round(n / total * 100);
   const gPct = pct(great), bPct = pct(bad);
@@ -660,32 +660,4 @@ function renderIndividual(name) {
           <tr>
             <td>${e.d.slice(5)}</td>
             <td><span class="pill ${pillCls(e.f)}">${e.f}</span></td>
-            <td>${e.s != null ? e.s + "/10" : "—"}</td>
-            <td style="max-width:340px;color:#64748b;font-size:12px">${(e.g||"").slice(0,160)}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>`;
-
-  dc("pMood");
-  new Chart(document.getElementById("pMood"), {
-    type: "line",
-    data: { labels: cd.map(e=>e.d.slice(5)), datasets: [{ data: cd.map(e=>moodScore(e.f)), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,0.07)", pointBackgroundColor: cd.map(e=>e.f==="Great"?"#16a34a":e.f==="Fine"?"#d97706":"#dc2626"), pointRadius:5, tension:0.3, fill:true, spanGaps:true }] },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10},maxRotation:45},grid:{display:false}},y:{min:0.5,max:3.5,ticks:{color:"#94a3b8",font:{size:10},stepSize:1,callback:v=>({1:"🔴",2:"🟡",3:"🟢"}[v]||"")},grid:{color:"#f1f5f9"}}} }
-  });
-
-  dc("pSleep");
-  new Chart(document.getElementById("pSleep"), {
-    type: "line",
-    data: { labels: cd.map(e=>e.d.slice(5)), datasets: [{ data: cd.map(e=>e.s), borderColor:"#16a34a", backgroundColor:"rgba(22,163,74,0.07)", pointBackgroundColor:"#16a34a", pointRadius:5, tension:0.3, fill:true, spanGaps:true }] },
-    options: { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#94a3b8",font:{size:10},maxRotation:45},grid:{display:false}},y:{min:1,max:10,ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#f1f5f9"}}} }
-  });
-}
-
-// ─── Init ─────────────────────────────────────────────────
-loadData();
-</script>
-</body>
-</html>
-
-
+            <td>${e.s != null ?
