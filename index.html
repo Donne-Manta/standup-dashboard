@@ -191,29 +191,42 @@ function getFlexibleField(row, targets) {
 function parseDate(raw) {
   if (!raw) return null;
   raw = raw.toString().trim();
+
+  // 1. Handle native Excel/Google Sheet serial numbers (e.g., 45231)
   if (/^\d{5}$/.test(raw)) {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     const days = parseInt(raw, 10);
     const convertedDate = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
     return convertedDate.toISOString().slice(0, 10);
   }
+
+  // 2. Already clean ISO standard format (YYYY-MM-DD)
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+
+  // 3. Leverage native browser parsing FIRST (handles text timestamps and standard Google Sheets formats flawlessly)
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  // 4. Manual fallback split for standard slash/dash formats if native engine misses it
   const p = raw.split(/[-/.]/);
   if (p.length === 3) {
     let [v1, v2, v3] = p;
     if (v3.length === 4) {
       let day = parseInt(v1, 10);
       let month = parseInt(v2, 10);
+      
       if (day > 12 && month <= 12) {
-        return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0");
+        return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0"); // DD/MM/YYYY
       } else if (month > 12 && day <= 12) {
-        return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0");
+        return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0"); // MM/DD/YYYY
       }
-      return v3 + "-" + v2.padStart(2, "0") + "-" + v1.padStart(2, "0");
+      // Default to American standard formatting if ambiguous (like 02/08/2026 for Feb 8th)
+      return v3 + "-" + v1.padStart(2, "0") + "-" + v2.padStart(2, "0");
     }
   }
-  const d = new Date(raw);
-  return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null;
+  return null;
 }
 
 function avg(arr) {
